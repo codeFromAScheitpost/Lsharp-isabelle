@@ -28,7 +28,7 @@ fun trans_star_state ::"'input list \<Rightarrow>'state \<Rightarrow> ('state,'i
 definition mealie_eq ::"('state, 'input, 'output) mealie \<Rightarrow>'state \<Rightarrow> ('state2, 'input, 'output) mealie \<Rightarrow> 'state2 \<Rightarrow> bool" where
 "mealie_eq a q b  p \<equiv> (case (a,b) of ((q_0,S,f),(p_0,S_2,g)) \<Rightarrow> (\<forall> is. trans_star_output is q f = trans_star_output is p g))"
 
-abbreviation equal :: "('state, 'input, 'output) mealie \<Rightarrow> ('state, 'input, 'output) mealie \<Rightarrow> bool" (infixr "\<approx>" 80)
+abbreviation equal :: "('state, 'input, 'output) mealie \<Rightarrow> ('state2, 'input, 'output) mealie \<Rightarrow> bool" (infixr "\<approx>" 80)
   where "a \<approx> b \<equiv>(case (a,b) of ((q_0,S,f),(p_0,S_2,g)) \<Rightarrow> mealie_eq a q_0 b p_0) "
 
 definition mealie_invar ::"('state,'input,'output) mealie \<Rightarrow> bool" where 
