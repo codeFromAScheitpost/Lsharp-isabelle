@@ -4,6 +4,7 @@ begin
 
 sledgehammer_params [provers = cvc4 verit z3 spass vampire zipperposition]
 
+text \<open>transitions mealy\<close>
 type_synonym ('state,'input,'output) transition ="(('state \<times>'input) \<Rightarrow> ('state \<times> 'output) )"
 
 type_synonym ('state,'input,'output) mealie = "'state \<times> 'state set \<times> ('state,'input,'output) transition"

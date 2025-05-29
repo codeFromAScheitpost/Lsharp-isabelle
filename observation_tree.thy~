@@ -624,24 +624,30 @@ lemma card_diff:" finite A \<Longrightarrow>card ((A)-B) \<le> card A"unfolding 
   section"inductive approach"
 
 
+type_synonym ('input,'output) state="('input list set \<times> 'input list set \<times> ('input,'output) obs_tree )"
+
+
+fun invar ::"(('input::finite),'output) state \<Rightarrow> bool" where 
+"invar (S,F,T) =(\<forall> e. \<not>(e\<in>S\<and>e\<in>F)\<and> finite S\<and> finite F \<and> (e\<in>S\<or>e\<in>F\<longrightarrow>out_star e T \<noteq> None)) "
+
+fun transfunc::"(('input::finite),'output) state \<Rightarrow>('input list,'input,'output) transition \<Rightarrow> bool " where
+"transfunc (S,F,T) t = (\<forall> s\<in>S. \<forall> i. (case otree_star s T of Some (Node (acc,tran),op) \<Rightarrow> (case tran i of Some (n,out) \<Rightarrow> ( if (s@[i]) \<in> S then t (s,i) =  (s@[i],out) else 
+ (\<exists> y\<in>S. \<not> apart_text T y (s@[i]) \<and> t (s,i) = (y,out)))   ))) "
 
 
 inductive algo_step::"('state,('input::finite),'output) mealie\<Rightarrow>'input list set \<times>'input list set \<times>('input,'output) obs_tree\<Rightarrow> 'input list set \<times>'input list set \<times>('input,'output) obs_tree\<Rightarrow> bool" 
   where
 rule1:"\<lbrakk> f\<in>F;\<forall> s\<in>S. apart_text T s f  \<rbrakk> \<Longrightarrow> algo_step m (S,F,T) (S\<union> {f},F-{f},T)  " |
 rule2:"\<lbrakk>s\<in>S; (out_star  (s@[i]) T = None); output_query m (s@[i]) =out  \<rbrakk> \<Longrightarrow> algo_step m (S,F,T) (S,F\<union>{s@[i]},process_output_query (s@[i]) out T)  " |
-rule3:"\<lbrakk> s1\<in>S; s2\<in>S;f\<in>F; \<not> apart_text T f s1; \<not> apart_text T f s2;   apart_witness w T s1 s2 ; output_query m (f@w) =out \<rbrakk> \<Longrightarrow> algo_step m (S,F,T) (S,F,process_output_query (f@w) out T)  " 
+rule3:"\<lbrakk> s1\<in>S; s2\<in>S;f\<in>F; \<not> apart_text T f s1; \<not> apart_text T f s2;   apart_witness w T s1 s2 ; output_query m (f@w) =out \<rbrakk> \<Longrightarrow> algo_step m (S,F,T) (S,F,process_output_query (f@w) out T)  "|
+rule4_end:"\<lbrakk> \<forall> s\<in>S. \<forall> i. \<not> isolated T S (s@[i]); transfunc (S,F,T) t ; eq_query f; f m ([],S,t) = (True,list)  \<rbrakk> \<Longrightarrow> algo_step m (S,F,T) (S,F,T)  " |
+rule4_step:"\<lbrakk> \<forall> s\<in>S. \<forall> i. \<not> isolated T S (s@[i]); transfunc (S,F,T) t ; eq_query f; f m ([],S,t) = (False,list);output_query m list = out  \<rbrakk> \<Longrightarrow> algo_step m (S,F,T) (S,F,process_output_query list out T)   " 
 
-type_synonym ('input,'output) state="('input list set \<times> 'input list set \<times> ('input,'output) obs_tree )"
+
+text \<open>ich schätze der beweis wird leichter wenn man annimmt das regel 4 nur angewendet wird wenn nötig (aussließlich um isolierungen in F herzustellen)\<close>
 
 
-fun invar ::"(('input::finite),'output) state \<Rightarrow> bool" where 
-"invar (S,F,T) =(\<forall> e. \<not>(e\<in>S\<and>e\<in>F)\<and> finite S\<and> finite F) "
-
-fun transfunc::"(('input::finite),'output) state \<Rightarrow>('input list,'input,'output) transition \<Rightarrow> bool " where
-"transfunc (S,F,T) t = (\<forall> s\<in>S. \<forall> i. (case otree_star s T of Some (Node (acc,tran),op) \<Rightarrow> (case tran i of Some (n,out) \<Rightarrow> ( if (s@[i]) \<in> S then t (s,i) =  (s@[i],out) else 
- (\<exists> y\<in>S. \<not> apart_text T y (s@[i]) \<and> t (s,i) = (y,out)))   ))) "
-
+text \<open> Lemma 3.6 aber ist das sinvoll? brauchen wir nicht eine transition zu jedem nachfolger state von S\<close>
 lemma exists_hypothesis:"\<And> s i. s\<in>S \<Longrightarrow> \<not> isolated T S (s@[i]) \<Longrightarrow> invar (S,F,T) \<Longrightarrow> \<exists> t. transfunc (S,F,T) t  "
   sorry
 
@@ -660,8 +666,6 @@ fun norm_set ::"(('input::finite),'output) state \<Rightarrow> nat" where
 
 
 
-lemma "  finite B \<Longrightarrow>card (A-B)\<ge> card A - card B"  
-  by (simp add: diff_card_le_card_Diff)
 
 
 lemma apart_none:
@@ -695,7 +699,7 @@ lemma not_none_not_both_apart:
 
 
 
-thm process_op_query_not_none
+
 lemma assumes "algo_step m ((S:: ('input::finite) list set),F,T) (S',F',T') " " invar (S,F,T) "
   shows "norm_set (S,F,T) < norm_set (S',F',T')"
 using assms proof(induction m  "(S,F,T)" "(S',F',T')" rule: algo_step.induct)
@@ -946,9 +950,16 @@ next
       card {(q, p). q \<in> S' \<and> p \<in> F' \<and>\<not>((q=s1\<or>q=s2) \<and>p=f) \<and> apart_text T' q p}+  card ({(q, p).((q=s2\<or>q=s1) \<and>p=f) \<and>  apart_text T' q p})" using card_not_zero 
       by simp
    then have trd:"norm_trd (S,F,T) < norm_trd (S',F',T')" using card_splitup by auto
-    
+  
    show ?case using fst snd trd 
      by fastforce
+ next
+  case (rule4_end t f m list)
+  then show ?case sorry
+next
+  case (rule4_step t f m list out)
+  then show ?case sorry
+qed
 qed
 
 

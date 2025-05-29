@@ -52,7 +52,9 @@ fun output_query ::"('state,('input::finite),'output) mealie \<Rightarrow> 'inpu
 
 
 definition eq_query :: " (('state,'input,'output) mealie \<Rightarrow> ('state2,'input,'output) mealie \<Rightarrow>(bool\<times>'input list)) \<Rightarrow>bool " where 
-"eq_query f \<equiv> \<forall> m h x.(case (m,h) of ((q_0,Q,t),(p_0,P,g)) \<Rightarrow>  (if h\<approx>m then f h m = (True, []) else f h m= (False,x)\<and> trans_star_output x q_0 t \<noteq> trans_star_output x p_0 g ))   "
+"eq_query f \<equiv> \<forall> m h x.(case (m,h) of ((q_0,Q,t),(p_0,P,g)) \<Rightarrow>
+  (if h\<approx>m then f h m = (True, []) else f h m= (False,x)\<and> 
+trans_star_output x q_0 t \<noteq> trans_star_output x p_0 g ))   "
 
 
 
@@ -631,17 +633,34 @@ fun invar ::"(('input::finite),'output) state \<Rightarrow> bool" where
 "invar (S,F,T) =(\<forall> e. \<not>(e\<in>S\<and>e\<in>F)\<and> finite S\<and> finite F \<and> (e\<in>S\<or>e\<in>F\<longrightarrow>out_star e T \<noteq> None)) "
 
 fun transfunc::"(('input::finite),'output) state \<Rightarrow>('input list,'input,'output) transition \<Rightarrow> bool " where
-"transfunc (S,F,T) t = (\<forall> s\<in>S. \<forall> i. (case otree_star s T of Some (Node (acc,tran),op) \<Rightarrow> (case tran i of Some (n,out) \<Rightarrow> ( if (s@[i]) \<in> S then t (s,i) =  (s@[i],out) else 
+"transfunc (S,F,T) t = 
+(\<forall> s\<in>S. \<forall> i. (case otree_star s T of Some (Node (acc,tran),op) \<Rightarrow> (case tran i of Some (n,out) \<Rightarrow>
+ ( if (s@[i]) \<in> S then t (s,i) =  (s@[i],out) else 
  (\<exists> y\<in>S. \<not> apart_text T y (s@[i]) \<and> t (s,i) = (y,out)))   ))) "
 
 
 inductive algo_step::"('state,('input::finite),'output) mealie\<Rightarrow>'input list set \<times>'input list set \<times>('input,'output) obs_tree\<Rightarrow> 'input list set \<times>'input list set \<times>('input,'output) obs_tree\<Rightarrow> bool" 
   where
 rule1:"\<lbrakk> f\<in>F;\<forall> s\<in>S. apart_text T s f  \<rbrakk> \<Longrightarrow> algo_step m (S,F,T) (S\<union> {f},F-{f},T)  " |
-rule2:"\<lbrakk>s\<in>S; (out_star  (s@[i]) T = None); output_query m (s@[i]) =out  \<rbrakk> \<Longrightarrow> algo_step m (S,F,T) (S,F\<union>{s@[i]},process_output_query (s@[i]) out T)  " |
-rule3:"\<lbrakk> s1\<in>S; s2\<in>S;f\<in>F; \<not> apart_text T f s1; \<not> apart_text T f s2;   apart_witness w T s1 s2 ; output_query m (f@w) =out \<rbrakk> \<Longrightarrow> algo_step m (S,F,T) (S,F,process_output_query (f@w) out T)  "|
-rule4_end:"\<lbrakk> \<forall> s\<in>S. \<forall> i. \<not> isolated T S (s@[i]); transfunc (S,F,T) t ; eq_query f; f m ([],S,t) = (True,list)  \<rbrakk> \<Longrightarrow> algo_step m (S,F,T) (S,F,T)  " |
-rule4_step:"\<lbrakk> \<forall> s\<in>S. \<forall> i. \<not> isolated T S (s@[i]); transfunc (S,F,T) t ; eq_query f; f m ([],S,t) = (False,list);output_query m list = out  \<rbrakk> \<Longrightarrow> algo_step m (S,F,T) (S,F,process_output_query list out T)   " 
+
+rule2:"\<lbrakk>s\<in>S; (out_star  (s@[i]) T = None); output_query m (s@[i]) =out  \<rbrakk>
+ \<Longrightarrow> algo_step m (S,F,T) (S,F\<union>{s@[i]},process_output_query (s@[i]) out T)  " |
+
+rule3:"\<lbrakk> s1\<in>S; s2\<in>S;f\<in>F; \<not> apart_text T f s1; \<not> apart_text T f s2; 
+  apart_witness w T s1 s2 ; output_query m (f@w) =out \<rbrakk> \<Longrightarrow>
+ algo_step m (S,F,T) (S,F,process_output_query (f@w) out T)  "|
+
+rule4_step:"\<lbrakk>  \<forall> i. \<not> isolated T S (s@[i]);
+  \<forall> s\<in>S. \<forall> i. out_star  (s@[i]) T \<noteq> None; 
+   fs\<in>F;
+  s\<in> S; 
+  \<not>apart_text T s fs;
+   drop (length s)( trans_star_output (s@inp) q_0 f)  \<noteq>
+ drop (length fs ) (trans_star_output (fs@inp) q_0 f) ; 
+  output_query (q_0,Q,f) (s@inp) = outs;
+  output_query  (q_0,Q,f) (fs@inp) =outf \<rbrakk>
+    \<Longrightarrow> algo_step (q_0,Q,f) (S,F,T) 
+(S,F,process_output_query (fs@inp) outf (process_output_query (s@inp) outs T))   " 
 
 
 text \<open>ich schätze der beweis wird leichter wenn man annimmt das regel 4 nur angewendet wird wenn nötig (aussließlich um isolierungen in F herzustellen)\<close>
