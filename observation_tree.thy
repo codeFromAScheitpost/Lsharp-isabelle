@@ -6,55 +6,40 @@ sledgehammer_params [provers = cvc4 verit z3 spass vampire zipperposition]
 datatype ('input,'output) obs_tree = Node "('input::finite) list \<times>('input \<Rightarrow> ( ('input,'output) obs_tree \<times> 'output) option)"
 
 
-fun otree_star :: "('input::finite) list \<Rightarrow> ('input,'output) obs_tree \<Rightarrow> ( ('input,'output) obs_tree\<times> 'output list ) option" where 
-"otree_star [] ot = Some (ot, [])"|
-"otree_star (i#is) (Node (acc,t)) = (case t i of Some (n,op) \<Rightarrow> (case (otree_star is n) of Some (ot,ops) \<Rightarrow> Some (ot,op#ops)| None \<Rightarrow> None ) | None \<Rightarrow> None)"
+fun otree_star :: "('input,'output) obs_tree \<Rightarrow>('input::finite) list \<Rightarrow>  ( ('input,'output) obs_tree\<times> 'output list ) option" where 
+"otree_star ot []  = Some (ot, [])"|
+"otree_star (Node (acc,t)) (i#is)  = (case t i of Some (n,op) \<Rightarrow> (case (otree_star  n is) of Some (ot,ops) \<Rightarrow> Some (ot,op#ops)| None \<Rightarrow> None ) | None \<Rightarrow> None)"
 
 
 
-fun out_star :: "('input::finite) list \<Rightarrow> ('input,'output) obs_tree \<Rightarrow> (  'output list ) option" where 
-"out_star [] ot = Some ([])"|
-"out_star (i#is) (Node (acc,t)) = (case t i of Some (n,op) \<Rightarrow> (case (out_star is n) of Some (ops) \<Rightarrow> Some (op#ops)| None \<Rightarrow> None ) | None \<Rightarrow> None)"
+fun out_star :: " ('input,'output) obs_tree \<Rightarrow>('input::finite) list \<Rightarrow> (  'output list ) option" where 
+"out_star  ot []  = Some ([])"|
+"out_star  (Node (acc,t)) (i#is) = (case t i of Some (n,op) \<Rightarrow>
+ (case (out_star  n is) of Some (ops) \<Rightarrow> Some (op#ops)| None \<Rightarrow> None ) | None \<Rightarrow> None)"
 
-
-definition func_sim ::"(('input::finite) list \<Rightarrow> 'state) \<Rightarrow> ('input,'output) obs_tree \<Rightarrow> ('state,'input,'output) mealie \<Rightarrow> bool " where
-"func_sim f T m =(case m of (q_0,S,t) \<Rightarrow> ((f [] = q_0) \<and>(\<forall> acc is  ops.  out_star (acc@is) T = Some (ops) \<longrightarrow>trans_star is (f acc) t = (f (acc@is),(drop (length acc) ops))))) " 
+definition func_sim ::"  ('state,'input,'output) mealy  \<Rightarrow>('input,'output) obs_tree \<Rightarrow>(('input::finite) list \<Rightarrow> 'state) \<Rightarrow> bool " where
+"func_sim m  T  f =(case m of (q_0,S,t) \<Rightarrow> ((f [] = q_0) \<and>(\<forall> acc is  ops.  out_star T (acc@is)  = Some (ops) \<longrightarrow>trans_star t (f acc) is  = (f (acc@is),(drop (length acc) ops))))) " 
 
 
 fun apart ::"(('input::finite),'output) obs_tree \<Rightarrow> ('input,'output) obs_tree \<Rightarrow>bool" where 
-"apart  (Node t1) (Node t2) = (\<exists> i x n n2 y. otree_star i (Node t1)  =Some (n,x) \<and> otree_star i  (Node t2)= Some (n2,y) \<and> x\<noteq>y)"
+"apart  (Node t1) (Node t2) = (\<exists> i x n n2 y. otree_star (Node t1) i   =Some (n,x) \<and> otree_star  (Node t2) i = Some (n2,y) \<and> x\<noteq>y)"
 
 fun apart_text ::"(('input::finite),'output) obs_tree \<Rightarrow> 'input list \<Rightarrow> 'input list \<Rightarrow>bool" where 
-"apart_text q_0 t1 t2 = (\<exists> i x  y. out_star (t1@i) q_0  =Some (x) \<and> out_star (t2@i) q_0= Some (y) \<and>drop (length t1) x\<noteq> drop (length (t2) )y)"
+"apart_text q_0 t1 t2 = (\<exists> i x  y. out_star q_0 (t1@i)   =Some (x) \<and>  out_star q_0 (t2@i) = Some (y) \<and>drop (length t1) x\<noteq> drop (length (t2) )y)"
 
 fun isolated:: "(('input::finite),'output) obs_tree \<Rightarrow>'input list set\<Rightarrow> 'input list  \<Rightarrow>bool" where 
 "isolated q_0 S f = (\<forall> s\<in>S. apart_text q_0 s f )"
 
 fun apart_witness ::"('input::finite) list \<Rightarrow>('input,'output) obs_tree \<Rightarrow> 'input list \<Rightarrow> 'input list \<Rightarrow>bool" where 
-"apart_witness  is q_0 t1 t2 = (\<exists>     x y. out_star (t1@is) q_0  =Some (x) \<and> out_star (t2@is)  q_0= Some (y) \<and> drop (length t1) x\<noteq>drop (length t2)y)"
+"apart_witness  is q_0 t1 t2 = (\<exists>     x y. out_star q_0 (t1@is)   =Some (x) \<and> out_star  q_0 (t2@is) = Some (y) \<and> drop (length t1) x\<noteq>drop (length t2)y)"
 
 
 
-fun apart_ilist ::"('input::finite) list \<Rightarrow> 'input list \<Rightarrow> ('input,'output) obs_tree \<Rightarrow>bool" where
-"apart_ilist  q p q_0 = (case (otree_star p q_0 ,otree_star q q_0) of (Some (t1,op1),Some (t2,op2)) \<Rightarrow>    (\<exists> i xn yn x y. otree_star i  t1  =Some (xn,x) \<and> otree_star i   t2= Some (yn,y) \<and> x\<noteq>y) | (_,_) \<Rightarrow> undefined)"
 
 
 
-fun not_apart_s ::" (('input::finite),'output) obs_tree \<Rightarrow> 'input list list  \<Rightarrow>     ('input,'output) obs_tree \<Rightarrow>  'input list list " where 
-"not_apart_s q_0 [] f = []"|
-"not_apart_s q_0  (s#ss) f = (case otree_star s q_0 of Some (snode,op) \<Rightarrow> (if (apart (snode) f) then not_apart_s q_0 ss f else s#(not_apart_s q_0 ss f)))"
-
-
-
-fun output_query ::"('state,('input::finite),'output) mealie \<Rightarrow> 'input list \<Rightarrow> 'output list " where 
-"output_query (q_0,Q,t) is=  trans_star_output  is q_0 t"
-
-
-
-definition eq_query :: " (('state,'input,'output) mealie \<Rightarrow> ('state2,'input,'output) mealie \<Rightarrow>(bool\<times>'input list)) \<Rightarrow>bool " where 
-"eq_query f \<equiv> \<forall> m h x.(case (m,h) of ((q_0,Q,t),(p_0,P,g)) \<Rightarrow>
-  (if h\<approx>m then f h m = (True, []) else f h m= (False,x)\<and> 
-trans_star_output x q_0 t \<noteq> trans_star_output x p_0 g ))   "
+fun output_query ::"('state,('input::finite),'output) mealy \<Rightarrow> 'input list \<Rightarrow> 'output list " where 
+"output_query (q_0,Q,t) is=  trans_star_output  t q_0 is "
 
 
 
@@ -63,33 +48,36 @@ trans_star_output x q_0 t \<noteq> trans_star_output x p_0 g ))   "
 
 
 
-fun process_output_query :: "('input::finite) list\<Rightarrow> 'output list \<Rightarrow>('input,'output) obs_tree \<Rightarrow> ('input,'output) obs_tree" where 
-"process_output_query [] [] q = q  "|
-"process_output_query i [] q =  undefined"|
-"process_output_query  [] _ q =  undefined"|
-"process_output_query (i#is) (op#ops) (Node (acc,t)) =  (case t i of None\<Rightarrow> (Node (acc, (\<lambda> j. if j=i then Some ( process_output_query is ops (Node (acc@[i],(\<lambda> k. None))),op)  else  t j))) 
-| Some (tree,out) \<Rightarrow>  (Node (acc, (\<lambda>j. if j=i then Some ((process_output_query is ops tree),out) else t j)) )) "
+
+
+
+fun process_output_query :: "('input,'output) obs_tree \<Rightarrow>('input::finite) list\<Rightarrow> 'output list \<Rightarrow> ('input,'output) obs_tree" where 
+"process_output_query  q [] [] = q  "|
+"process_output_query q i []  =  undefined"|
+"process_output_query q [] _  =  undefined"|
+"process_output_query  (Node (acc,t)) (i#is) (op#ops) =  (case t i of None\<Rightarrow> (Node (acc, (\<lambda> j. if j=i then Some ( process_output_query (Node (acc@[i],(\<lambda> k. None))) is ops ,op)  else  t j))) 
+| Some (tree,out) \<Rightarrow>  (Node (acc, (\<lambda>j. if j=i then Some ((process_output_query tree is ops ),out) else t j)) )) "
 
 
 
 
 
-lemma assumes "apart_text T p q ""func_sim f T (q_0,Q,t)"
+lemma apart_sim: assumes "apart_text T p q ""func_sim  (q_0,Q,t) T f"
   shows" f q \<noteq> f p "
 proof 
   assume as:"f q = f p"
-  then have a: "\<forall>  is  ops.  out_star (q@is) T = Some (ops) \<longrightarrow>trans_star is (f q) t = (f (q@is),(drop (length q) ops))" using assms unfolding func_sim_def 
+  then have a: "\<forall>  is  ops.  out_star  T (q@is) = Some (ops) \<longrightarrow>trans_star t (f q) is = (f (q@is),(drop (length q) ops))" using assms unfolding func_sim_def 
     by blast
-  have  b: "\<forall>  is  ops.  out_star (p@is) T = Some (ops) \<longrightarrow>trans_star is (f p) t = (f (p@is),(drop (length p) ops))" using assms unfolding func_sim_def using as 
+  have  b: "\<forall>  is  ops.  out_star  T (p@is) = Some (ops) \<longrightarrow>trans_star t (f p) is  = (f (p@is),(drop (length p) ops))" using assms unfolding func_sim_def using as 
     by simp
-  have "(\<exists> i x  y. out_star (q@i) T  =Some (x) \<and> out_star (p@i) T= Some (y) \<and>drop (length q) x\<noteq> drop (length (p) )y)" using assms 
+  have "(\<exists> i x  y. out_star T (q@i)   =Some (x) \<and> out_star T (p@i)= Some (y) \<and>drop (length q) x\<noteq> drop (length (p) )y)" using assms 
     by fastforce
   then show False using a b 
     using as by fastforce
 qed
 
 
-lemma otree_eq_out:"(case otree_star i (Node (l,r)) of None \<Rightarrow> out_star i (Node (l,r)) = None | Some (n,out) \<Rightarrow> out_star i (Node (l,r)) =Some out)"
+lemma otree_eq_out:"(case otree_star (Node (l,r)) i  of None \<Rightarrow> out_star (Node (l,r)) i  = None | Some (n,out) \<Rightarrow> out_star (Node (l,r)) i  =Some out)"
 proof (induction i arbitrary:l r)
   case Nil
   then show ?case 
@@ -104,19 +92,19 @@ next
     case (Some b)
     then obtain l2 r2 o2 where b: "b=(Node (l2,r2),o2)" 
       by (metis obs_tree.exhaust surj_pair)
-    then have one:"otree_star (a#i) (Node (l,r)) = (case otree_star i (Node (l2,r2)) of None \<Rightarrow> None | Some (node,out) \<Rightarrow> Some (node,o2#out))" using Some 
+    then have one:"otree_star (Node (l,r)) (a#i) = (case otree_star (Node (l2,r2)) i  of None \<Rightarrow> None | Some (node,out) \<Rightarrow> Some (node,o2#out))" using Some 
       by simp
-    have two:"out_star (a#i) (Node (l,r)) = (case out_star i (Node (l2,r2)) of  None \<Rightarrow> None | Some (out) \<Rightarrow> Some (o2#out))" using Some b 
+    have two:"out_star (Node (l,r)) (a#i)  = (case out_star (Node (l2,r2)) i  of  None \<Rightarrow> None | Some (out) \<Rightarrow> Some (o2#out))" using Some b 
       by simp
-    have "(case otree_star i (Node (l2,r2)) of None \<Rightarrow> out_star i (Node (l2,r2)) = None | Some (n,out) \<Rightarrow> out_star i (Node (l2,r2)) =Some out)" using Cons 
+    have "(case otree_star (Node (l2,r2)) i  of None \<Rightarrow> out_star (Node (l2,r2)) i  = None | Some (n,out) \<Rightarrow> out_star (Node (l2,r2)) i  =Some out)" using Cons 
       by simp
-    then show ?thesis using one two apply (cases " otree_star i (Node (l2,r2))")  
+    then show ?thesis using one two apply (cases " otree_star (Node (l2,r2)) i ")  
       by auto
   qed
 qed
 
 
-lemma out_eq_otree: "\<exists> node.(case out_star i (Node (l,r)) of None \<Rightarrow> otree_star i (Node (l,r)) = None | Some (out) \<Rightarrow> otree_star i (Node (l,r)) =Some (node,out))"
+lemma out_eq_otree: "\<exists> node.(case out_star  (Node (l,r)) i of None \<Rightarrow> otree_star (Node (l,r)) i  = None | Some (out) \<Rightarrow> otree_star (Node (l,r)) i  =Some (node,out))"
 proof (induction i arbitrary:l r)
   case Nil
   then show ?case 
@@ -131,37 +119,44 @@ next
     case (Some b)
     then obtain l2 r2 o2 where b: "b=(Node (l2,r2),o2)" 
       by (metis obs_tree.exhaust surj_pair)
-    then have one:"out_star (a#i) (Node (l,r)) = (case out_star i (Node (l2,r2)) of None \<Rightarrow> None | Some (out) \<Rightarrow> Some (o2#out))" using Some 
+    then have one:"out_star (Node (l,r)) (a#i)  = (case out_star (Node (l2,r2)) i  of None \<Rightarrow> None | Some (out) \<Rightarrow> Some (o2#out))" using Some 
       by simp
-    have two:"out_star (a#i) (Node (l,r)) = (case out_star i (Node (l2,r2)) of  None \<Rightarrow> None | Some (out) \<Rightarrow> Some (o2#out))" using Some b 
+    have two:"out_star (Node (l,r)) (a#i)  = (case out_star (Node (l2,r2)) i  of  None \<Rightarrow> None | Some (out) \<Rightarrow> Some (o2#out))" using Some b 
       by simp
-       have three:"otree_star (a#i) (Node (l,r)) = (case otree_star i (Node (l2,r2)) of None \<Rightarrow> None | Some (node,out) \<Rightarrow> Some (node,o2#out))" using Some b
+       have three:"otree_star (Node (l,r)) (a#i)  = (case otree_star (Node (l2,r2)) i  of None \<Rightarrow> None | Some (node,out) \<Rightarrow> Some (node,o2#out))" using Some b
       by simp
-    have "\<exists> node. (case out_star i (Node (l2,r2)) of None \<Rightarrow> otree_star i (Node (l2,r2)) = None | Some (out) \<Rightarrow> otree_star i (Node (l2,r2)) =Some (node,out))" using Cons 
+    have "\<exists> node. (case out_star (Node (l2,r2)) i  of None \<Rightarrow> otree_star (Node (l2,r2)) i  = None | Some (out) \<Rightarrow> otree_star (Node (l2,r2)) i  =Some (node,out))" using Cons 
       by simp
-    then show ?thesis using one two three apply (cases " out_star i (Node (l2,r2))")  
+    then show ?thesis using one two three apply (cases " out_star (Node (l2,r2)) i ")  
       by auto
       
   qed
 qed
 
-lemma  otree_induct_helper:"t i = (Some (tree,out)) \<Longrightarrow> length op= length acc \<Longrightarrow>otree_star acc (process_output_query (acc) op (tree)) = Some (lt,lout) \<Longrightarrow>
- otree_star (i#acc) (process_output_query (i#acc ) (out#op) (Node (acc_n, t))) = Some (lt,out#lout)"
-by (induction acc) auto
- 
-
-lemma  otree_induct_helper_none:"t i = None \<Longrightarrow> length op= length acc \<Longrightarrow>otree_star acc (process_output_query (acc) op (Node (acc_n@[i],Map.empty))) = Some (lt,lout) \<Longrightarrow>
- otree_star (i#acc) (process_output_query (i#acc ) (out#op) (Node (acc_n, t))) = Some (lt,out#lout)"
+lemma  otree_induct_helper:"t i = (Some (tree,out)) \<Longrightarrow> length op= length acc \<Longrightarrow>otree_star (process_output_query (tree) (acc) op ) acc  = Some (lt,lout) \<Longrightarrow>
+ otree_star (process_output_query (Node (acc_n, t)) (i#acc ) (out#op) ) (i#acc)  = Some (lt,out#lout)"
   by (induction acc) auto
 
+lemma  output_induct_helper:"t i = (Some (tree,out)) \<Longrightarrow> length op= length acc \<Longrightarrow>out_star (process_output_query (tree) (acc) op ) acc  = Some (lout) \<Longrightarrow>
+ out_star (process_output_query (Node (acc_n, t)) (i#acc ) (out#op) ) (i#acc)  = Some (out#lout)"
+by (induction acc) auto
+ 
+ 
 
+lemma  otree_induct_helper_none:"t i = None \<Longrightarrow> length op= length acc \<Longrightarrow>otree_star (process_output_query (Node (acc_n@[i],Map.empty)) (acc) op ) acc  = Some (lt,lout) \<Longrightarrow>
+ otree_star (process_output_query (Node (acc_n, t)) (i#acc ) (out#op) ) (i#acc)  = Some (lt,out#lout)"
+  by (induction acc) auto
+
+lemma  output_induct_helper_none:"t i = None \<Longrightarrow> length op= length acc \<Longrightarrow>out_star (process_output_query (Node (acc_n@[i],Map.empty)) (acc) op ) acc  = Some (lout) \<Longrightarrow>
+ out_star (process_output_query (Node (acc_n, t)) (i#acc ) (out#op) ) (i#acc)  = Some (out#lout)"
+  by (induction acc) auto
 
   
 
 
 
 
-lemma process_op_query_not_none: "length (ip) = length op \<Longrightarrow>  otree_star (ip)   (process_output_query (ip) (op) (Node (acc,t)))\<noteq>None"
+lemma process_op_query_not_none: "length (ip) = length op \<Longrightarrow>  otree_star (process_output_query (Node (acc,t)) (ip) (op) ) (ip)   \<noteq>None"
  proof (induction ip  arbitrary:op t acc )
    case Nil              
    then show ?case  by auto 
@@ -174,10 +169,10 @@ lemma process_op_query_not_none: "length (ip) = length op \<Longrightarrow>  otr
    then show ?case  proof (cases "t a")
      case None
  
-       have " otree_star (ip) (process_output_query (ip) ofs (Node (acc@[a],(\<lambda> is. None)))) \<noteq> None" using Cons ofs   by auto 
-       then obtain  lt lout where "otree_star (ip) (process_output_query (ip) ofs (Node (acc@[a],(\<lambda> is. None)))) = Some (lt,lout)" 
+       have " otree_star (process_output_query (Node (acc@[a],(\<lambda> is. None))) (ip) ofs ) (ip)  \<noteq> None" using Cons ofs   by auto 
+       then obtain  lt lout where "otree_star (process_output_query (Node (acc@[a],(\<lambda> is. None))) (ip) ofs ) (ip)   = Some (lt,lout)" 
          by fast
-       then have " otree_star (a # ip) (process_output_query (a # ip) op (Node (acc, t))) = Some (lt,os#lout)" using Cons ofs None   otree_induct_helper_none  by auto
+       then have " otree_star  (process_output_query (Node (acc, t)) (a # ip) op ) (a # ip) = Some (lt,os#lout)" using Cons ofs None   otree_induct_helper_none  by auto
      then show ?thesis by auto 
    next
      case (Some b)
@@ -185,33 +180,33 @@ lemma process_op_query_not_none: "length (ip) = length op \<Longrightarrow>  otr
      then show ?thesis  proof (cases b)
        case (Pair tree c )
        
-       have " otree_star (ip) (process_output_query (ip) ofs tree) \<noteq> None" using Cons ofs   apply auto 
+       have " otree_star (process_output_query tree (ip) ofs ) (ip)  \<noteq> None" using Cons ofs   apply auto 
          by (metis obs_tree.exhaust surj_pair) 
-       then obtain lt lout where "otree_star (ip) (process_output_query (ip) ofs tree) = Some (lt,lout)" 
+       then obtain lt lout where "otree_star (process_output_query tree (ip) ofs ) (ip)  = Some (lt,lout)" 
          by fast
-       then have " otree_star (a # ip) (process_output_query (a # ip) op (Node (acc, t))) = Some (lt,c#lout)" using Cons ofs Some Pair otree_induct_helper by auto
+       then have " otree_star (process_output_query (Node (acc, t)) (a # ip) op ) (a # ip)  = Some (lt,c#lout)" using Cons ofs Some Pair otree_induct_helper by auto
        then show ?thesis  by auto
      qed 
    qed
  qed 
 
-lemma output_query_different:"length op=length (ip) \<Longrightarrow> i\<noteq>ac \<Longrightarrow>(case process_output_query (i#ip) (os#op) (Node (acc,t)) of (Node (accs,ts)) \<Rightarrow> ts ac=t ac)"
+lemma output_query_different:"length op=length (ip) \<Longrightarrow> i\<noteq>ac \<Longrightarrow>(case process_output_query  (Node (acc,t)) (i#ip) (os#op) of (Node (accs,ts)) \<Rightarrow> ts ac=t ac)"
   by  (auto split:prod.splits option.splits)  
 
 
 lemma otree_star_output_query_different:
   assumes"ac\<noteq>i " "length (ip) = length op " " t ac= Some (tree,outies)"
-  shows " otree_star (ac#list) (process_output_query (i#ip) (os#op) (Node (acc,t)))  =(case otree_star list tree of Some (n,opl) \<Rightarrow> Some (n,outies#opl) | None \<Rightarrow> None) "
+  shows " otree_star  (process_output_query (Node (acc,t)) (i#ip) (os#op) ) (ac#list)  =(case otree_star tree list  of Some (n,opl) \<Rightarrow> Some (n,outies#opl) | None \<Rightarrow> None) "
 proof -
   
-  have "(case process_output_query (i#ip) (os#op) (Node (acc,t)) of (Node (accs,ts)) \<Rightarrow> ts ac=t ac) "   using assms output_query_different[of op ip i ac] by auto
+  have "(case process_output_query (Node (acc,t)) (i#ip) (os#op)  of (Node (accs,ts)) \<Rightarrow> ts ac=t ac) "   using assms output_query_different[of op ip i ac] by auto
  
   then show ?thesis using assms(3) by (auto split:prod.splits option.splits) 
 qed
 
 
-lemma output_query_retains_some: assumes "length (ip) = length op" " otree_star (acc) q_0 \<noteq> None "
-  shows" otree_star (acc) (process_output_query (ip) (op) (q_0)) \<noteq> None"
+lemma output_query_retains_some: assumes "length (ip) = length op" " otree_star q_0 (acc)  \<noteq> None "
+  shows" otree_star (process_output_query q_0 (ip) (op) ) (acc)  \<noteq> None"
 using assms proof (induction ip arbitrary:op acc q_0 )
   case Nil
   then show ?case 
@@ -233,22 +228,24 @@ obtain os ops where os: "op=os#ops" using a apply auto
           case True 
           then show ?thesis proof (cases "r ac")
             case None
-            then have "otree_star (ac#list) (q_0) =None" using Pair Node by auto
+            then have "otree_star (q_0) (ac#list)  =None" using Pair Node by auto
             then show ?thesis using a Cons
               by (simp)  
           next
             case (Some c)
               then  obtain tree outies where outies:"r ac = Some (tree,outies) " using Pair Node Cons a Some  
               by fastforce 
-            then have h2: " otree_star (ac#list) (process_output_query (a # ip) (os#ops) q_0) =(case otree_star list (process_output_query ip ops tree) of Some (n,opl) \<Rightarrow> Some (n,outies#opl) | None \<Rightarrow> None)  "
+            then have h2: " otree_star  (process_output_query q_0 (a # ip) (os#ops) ) (ac#list) =
+                  (case otree_star (process_output_query tree ip ops ) list  of
+                   Some (n,opl) \<Rightarrow> Some (n,outies#opl) | None \<Rightarrow> None)  "
               using Some True Pair Node Cons a
-              using otree_star_output_query_different[of ac  a ip ops r tree outies list os ]  by auto 
-            have h1:"otree_star (ac#list) q_0=(case otree_star  list tree of Some (n,opl) \<Rightarrow> Some (n,outies#opl) | None \<Rightarrow> None)"  using outies Pair Node by auto
-            have "otree_star (ac#list) q_0 \<noteq> None" using a Cons 
+              using otree_star_output_query_different  by auto 
+            have h1:"otree_star q_0 (ac#list) =(case otree_star tree  list  of Some (n,opl) \<Rightarrow> Some (n,outies#opl) | None \<Rightarrow> None)"  using outies Pair Node by auto
+            have "otree_star q_0 (ac#list)  \<noteq> None" using a Cons 
               by blast
-            then have "otree_star list tree\<noteq> None " using a h1 
+            then have "otree_star tree list \<noteq> None " using a h1 
               by (metis option.simps(4))
-            then have "otree_star list (process_output_query ip ops tree)\<noteq> None " using a os 
+            then have "otree_star (process_output_query tree ip ops ) list \<noteq> None " using a os 
               by force 
             then show ?thesis using h2 os Cons 
               by force
@@ -259,7 +256,7 @@ obtain os ops where os: "op=os#ops" using a apply auto
          
           then show ?thesis proof (cases "r ac")
             case None
-            then have "otree_star (ac#list) (q_0) =None" using Pair Node by auto
+            then have "otree_star q_0 (ac#list)  =None" using Pair Node by auto
             then show ?thesis using a Cons
               by (simp)  
           next
@@ -267,13 +264,17 @@ obtain os ops where os: "op=os#ops" using a apply auto
             
             then  obtain tree outies where outies:"r ac = Some (tree,outies) " using Pair Node Cons a Some  
               by fastforce 
-            then have h2: "otree_star (ac#list) (process_output_query (a#ip) (os#ops) q_0)  =(case otree_star list tree of Some (n,opl) \<Rightarrow> Some (n,outies#opl) | None \<Rightarrow> None) " using Some False Pair Node Cons a
-              using otree_star_output_query_different[of ac  a ip ops r tree outies list os ] 
+            then have h2: "otree_star (process_output_query q_0 (a#ip) (os#ops) ) (ac#list)   =
+          (case otree_star tree list  of Some (n,opl) \<Rightarrow> Some (n,outies#opl) | None \<Rightarrow> None) " 
+              using Some False Pair Node Cons a
+              using otree_star_output_query_different
               apply auto by  (auto split:prod.splits option.splits)
-            have h1:"otree_star (ac#list) q_0=(case otree_star  list tree of Some (n,opl) \<Rightarrow> Some (n,outies#opl) | None \<Rightarrow> None)"  using outies Pair Node by auto
-            have "otree_star (ac#list) q_0 \<noteq> None" using a Cons 
+            have h1:"otree_star q_0 (ac#list) =(case otree_star tree  list  of Some (n,opl) \<Rightarrow>
+                   Some (n,outies#opl) | None \<Rightarrow> None)" 
+              using outies Pair Node by auto
+            have "otree_star  q_0 (ac#list)  \<noteq> None" using a Cons 
               by blast
-            then have "otree_star list tree \<noteq> None" using h1 
+            then have "otree_star tree  list  \<noteq> None" using h1 
               by (metis option.simps(4))
             then show ?thesis using h2 Cons a 
               by (simp add: h1 os)
@@ -285,46 +286,49 @@ obtain os ops where os: "op=os#ops" using a apply auto
 qed 
 
 
-lemma output_query_retains_some_output: assumes "length (ip) = length op" " out_star (acc) q_0 \<noteq> None "
-  shows" out_star (acc) (process_output_query (ip) (op) (q_0)) \<noteq> None"
+lemma output_query_retains_some_output: assumes "length (ip) = length op" " out_star q_0 (acc) \<noteq> None "
+  shows" out_star (process_output_query q_0 (ip) (op) ) (acc)  \<noteq> None"
 proof -
   obtain l r where lr: "q_0 = Node(l,r)" 
     using obs_tree.exhaust by auto
-  then have " otree_star (acc) q_0 \<noteq> None " using out_eq_otree[of acc l r  ] assms(2) 
-    by fastforce
-  then have ot:" otree_star (acc) (process_output_query (ip) (op) (q_0)) \<noteq> None" using output_query_retains_some assms 
-    by blast
-  obtain l2 r2 where "(process_output_query (ip) (op) (q_0)) = Node (l2,r2)" using obs_tree.exhaust 
+  then have " otree_star q_0 (acc)  \<noteq> None " using out_eq_otree[of l r acc  ] assms 
     by auto
-  then have " out_star (acc) (process_output_query (ip) (op) (q_0)) \<noteq> None" using otree_eq_out[of acc l2 r2] ot  
+   
+  then have ot:" otree_star (process_output_query q_0 (ip) (op) ) (acc)  \<noteq> None" using output_query_retains_some assms 
+    by blast
+  obtain l2 r2 where "(process_output_query q_0 (ip) (op) ) = Node (l2,r2)" using obs_tree.exhaust 
+    by auto
+  then have " out_star (process_output_query q_0 (ip) (op) ) (acc)  \<noteq> None" using otree_eq_out[of l2 r2 acc] ot  
     by auto
    then show ?thesis 
      by simp 
  qed
 
 lemma process_op_query_not_none_output: assumes "length (ip) = length op "
-  shows" out_star (ip)   (process_output_query (ip) (op) (Node (acc,t)))\<noteq>None"
+  shows" out_star (process_output_query (Node (acc,t)) (ip) (op) ) (ip)   \<noteq>None"
 proof -
 
   
-   have ot:" otree_star (ip) (process_output_query (ip) (op) (Node (acc,t))) \<noteq> None" using output_query_retains_some assms  process_op_query_not_none
+   have ot:" otree_star (process_output_query  (Node (acc,t)) (ip) (op)) (ip)  \<noteq> None" using output_query_retains_some assms  process_op_query_not_none
     by blast
-  obtain l2 r2 where "(process_output_query (ip) (op)   (Node (acc,t))) = Node (l2,r2)" using obs_tree.exhaust 
+  obtain l2 r2 where "(process_output_query (Node (acc,t)) (ip) (op)   ) = Node (l2,r2)" using obs_tree.exhaust 
     by auto
-  then have " out_star (ip) (process_output_query (ip) (op) (Node (acc,t))) \<noteq> None" using otree_eq_out[of acc l2 r2] ot  
+  then have " out_star (process_output_query (Node (acc,t)) (ip) (op) ) (ip)  \<noteq> None" using otree_eq_out[of l2 r2 acc ] ot  
     by (smt (verit) option.simps(4) out_eq_otree)
    then show ?thesis 
      by simp 
  qed
 
-lemma otree_split:" otree_star (a#acc) (Node (l,r)) = Some (tr1,out1) \<Longrightarrow> r a \<noteq> None" 
+lemma otree_split:" otree_star (Node (l,r)) (a#acc)  = Some (tr1,out1) \<Longrightarrow> r a \<noteq> None" 
   by (auto split:prod.splits option.splits)
 
-lemma out_split:" out_star (a#acc) (Node (l,r)) = Some (out1) \<Longrightarrow> r a \<noteq> None" 
+lemma out_split:" out_star  (Node (l,r)) (a#acc) = Some (out1) \<Longrightarrow> r a \<noteq> None" 
   by (auto split:prod.splits option.splits)
 
 
-lemma output_query_retains_some_specific: assumes "length (ip) = length op" " otree_star (acc) (Node (l,r)) = Some (tr1,out1) " " otree_star (acc) (process_output_query (ip) (op) (Node (l,r))) = Some (tr2,out2)"
+lemma output_query_retains_some_specific: assumes "length (ip) = length op"
+      " otree_star (Node (l,r)) (acc)  = Some (tr1,out1) "
+      " otree_star (process_output_query (Node (l,r)) (ip) (op) ) (acc)  = Some (tr2,out2)"
   shows "out1=out2"
 using assms proof (induction acc arbitrary: ip op  l r  tr1 tr2 out1 out2 )
   case Nil
@@ -347,26 +351,37 @@ next
     then show ?thesis proof(cases "i=a")
       case True
      
-      then have " otree_star (a#acc) (process_output_query (ip) (op) (Node (l,r))) =  otree_star (a#acc) (process_output_query (i#ilist) (ops#olist) (Node (l,r)))" using Cons op 
+      then have " otree_star (process_output_query  (Node (l,r)) (ip) (op)) (a#acc)  = 
+       otree_star  (process_output_query  (Node (l,r)) (i#ilist) (ops#olist)) (a#acc)" using Cons op 
         by presburger
-      also have "\<dots> =  otree_star (a#acc) (case r i of None\<Rightarrow> (Node (l, (\<lambda> j. if j=i then Some ( process_output_query ilist olist (Node (acc@[i],(\<lambda> k. None))),ops)  else  r j))) 
-| Some (tree,out) \<Rightarrow>  (Node (l, (\<lambda>j. if j=i then Some ((process_output_query ilist olist tree),out) else r j)) )) " using True ra 
+      also have "\<dots> =  otree_star (case r i of None\<Rightarrow> (Node (l, (\<lambda> j. if j=i 
+  then Some ( process_output_query  (Node (acc@[i],(\<lambda> k. None))) ilist olist,ops)  else  r j))) 
+| Some (tree,out) \<Rightarrow>  (Node (l, (\<lambda>j. if j=i then Some ((process_output_query tree ilist olist ),out) 
+      else r j)) )) (a#acc)  " using True ra 
         by simp
-      also have "\<dots>=otree_star (a#acc)  (Node (l, (\<lambda>j. if j=i then Some ((process_output_query ilist olist (Node (l2,r2)),outs)) else r j)) )" using ra 
+      also have "\<dots>=otree_star (Node (l, (\<lambda>j. if j=i 
+        then Some ((process_output_query (Node (l2,r2)) ilist olist ,outs))
+         else r j)) ) (a#acc)  " using ra 
         by (simp add: True)
-      also have "\<dots>=( case otree_star acc (process_output_query ilist olist (Node (l2,r2)))  of Some (node,output) \<Rightarrow> Some (node, outs#output) | None \<Rightarrow> None ) " using ra True 
+      also have "\<dots>=( case otree_star (process_output_query  (Node (l2,r2)) ilist olist) acc 
+        of Some (node,output) \<Rightarrow> Some (node, outs#output) | None \<Rightarrow> None ) " using ra True 
         by auto
-      finally have calc1:" otree_star (a#acc) (process_output_query (ip) (op) (Node (l,r))) =( case otree_star acc (process_output_query ilist olist (Node (l2,r2)))  of Some (node,output) \<Rightarrow> Some (node, outs#output) | None \<Rightarrow> None )"
+      finally have calc1:" otree_star  (process_output_query (Node (l,r)) (ip) (op) ) (a#acc) =
+      ( case otree_star (process_output_query (Node (l2,r2)) ilist olist ) acc  
+       of Some (node,output) \<Rightarrow> Some (node, outs#output) | None \<Rightarrow> None )"
         by blast
-      have " otree_star acc (process_output_query ilist olist (Node (l2,r2))) \<noteq> None " using calc1 c Cons True 
+      have " otree_star (process_output_query (Node (l2,r2)) ilist olist ) acc  \<noteq> None "
+        using calc1 c Cons True 
         by (metis not_Some_eq option.simps(4))
-      then obtain node1 outputs1 where n1: " otree_star acc (process_output_query ilist olist (Node (l2,r2))) = Some (node1, outputs1)" 
+      then obtain node1 outputs1 where
+         n1: " otree_star  (process_output_query (Node (l2,r2)) ilist olist ) acc = Some (node1, outputs1)" 
         by fast 
-      have calc2: "otree_star (a#acc) (Node (l,r)) = ( case otree_star (acc) (Node (l2,r2)) of Some (node,output) \<Rightarrow> Some (node,outs#output) | None \<Rightarrow> None) " using c ra True 
+      have calc2: "otree_star (Node (l,r)) (a#acc)  = ( case otree_star (Node (l2,r2)) (acc) 
+         of Some (node,output) \<Rightarrow> Some (node,outs#output) | None \<Rightarrow> None) " using c ra True 
         by simp
-      then have "otree_star acc (Node (l2,r2)) \<noteq> None" using c 
+      then have "otree_star (Node (l2,r2)) acc  \<noteq> None" using c 
         by (metis not_Some_eq option.simps(4))
-      then obtain node2 outputs2 where n2:"otree_star acc (Node (l2,r2)) = Some (node2, outputs2)" 
+      then obtain node2 outputs2 where n2:"otree_star (Node (l2,r2)) acc  = Some (node2, outputs2)" 
         by auto
        have "outputs1=outputs2" using c.IH n1 n2 c(2) op Cons 
          using append1_eq_conv length_Cons by fastforce
@@ -374,14 +389,20 @@ next
           by (simp add: n1 n2)
     next
       case False
-    then have " otree_star (a#acc) (process_output_query (ip) (op) (Node (l,r))) =  otree_star (a#acc) (process_output_query (i#ilist) (ops#olist) (Node (l,r)))" using Cons op 
+      then have " otree_star (process_output_query (Node (l,r)) (ip) (op) )  (a#acc) =  
+      otree_star (process_output_query (Node (l,r)) (i#ilist) (ops#olist) ) (a#acc) " using Cons op 
         by presburger
-      also have "\<dots> =  otree_star (a#acc) (case r i of None\<Rightarrow> (Node (l, (\<lambda> j. if j=i then Some ( process_output_query ilist olist (Node (l@[i],(\<lambda> k. None))),ops)  else  r j))) 
-          | Some (tree,out) \<Rightarrow>  (Node (l, (\<lambda>j. if j=i then Some ((process_output_query ilist olist tree),out) else r j)) )) " using False ra 
+      also have "\<dots> =  otree_star (case r i of None\<Rightarrow> (Node (l, (\<lambda> j. if j=i 
+        then Some ( process_output_query (Node (l@[i],(\<lambda> k. None))) ilist olist ,ops)  else  r j))) 
+          | Some (tree,out) \<Rightarrow>  (Node (l, (\<lambda>j. if j=i then Some ((process_output_query tree ilist olist ),out)
+         else r j)) )) (a#acc)  "
+        using False ra 
         by simp
-      also have "\<dots>=( case otree_star acc (Node (l2,r2))  of Some (node,output) \<Rightarrow> Some (node, outs#output) | None \<Rightarrow> None ) " using ra apply (cases "r i")  using False by auto
+      also have "\<dots>=( case otree_star (Node (l2,r2)) acc   
+  of Some (node,output) \<Rightarrow> Some (node, outs#output) | None \<Rightarrow> None ) "
+        using ra apply (cases "r i")  using False by auto
         
-      also have "\<dots>= otree_star (a#acc) (Node (l,r)) " using ra 
+      also have "\<dots>= otree_star (Node (l,r)) (a#acc)  " using ra 
         by simp  
       
       finally show ?thesis  using c Cons 
@@ -390,8 +411,9 @@ next
   qed
 qed
 
-lemma output_query_retains_some_specific_output: assumes "length (ip) = length op" " out_star (acc) (Node (l,r)) = Some (out1) "
-  shows "Some out1 =out_star acc (process_output_query (ip) (op) (Node (l,r))) "
+lemma output_query_retains_some_specific_output:
+  assumes "length (ip) = length op" " out_star (Node (l,r)) (acc)  = Some (out1) "
+  shows "Some out1 =out_star  (process_output_query (Node (l,r)) (ip) (op) ) acc "
 using assms proof (induction acc arbitrary: ip op  l r   out1  )
   case Nil
   then show ?case 
@@ -413,27 +435,36 @@ next
     then show ?thesis proof(cases "i=a")
       case True
      
-      then have " out_star (a#acc) (process_output_query (ip) (op) (Node (l,r))) =  out_star (a#acc) (process_output_query (i#ilist) (ops#olist) (Node (l,r)))" using Cons op 
+      then have " out_star  (process_output_query (Node (l,r)) (ip) (op) ) (a#acc) = 
+       out_star (process_output_query (Node (l,r)) (i#ilist) (ops#olist) ) (a#acc) " 
+        using Cons op 
         by presburger
-      also have "\<dots> =  out_star (a#acc) (case r i of None\<Rightarrow> (Node (l, (\<lambda> j. if j=i then Some ( process_output_query ilist olist (Node (acc@[i],(\<lambda> k. None))),ops)  else  r j))) 
-| Some (tree,out) \<Rightarrow>  (Node (l, (\<lambda>j. if j=i then Some ((process_output_query ilist olist tree),out) else r j)) )) " using True ra 
-        by simp
-      also have "\<dots>=out_star (a#acc)  (Node (l, (\<lambda>j. if j=i then Some ((process_output_query ilist olist (Node (l2,r2)),outs)) else r j)) )" using ra 
-        by (simp add: True)
-      also have "\<dots>=( case out_star acc (process_output_query ilist olist (Node (l2,r2)))  of Some (output) \<Rightarrow> Some (outs#output) | None \<Rightarrow> None ) " using ra True 
+      also have "\<dots> =  out_star  (case r i of None\<Rightarrow> (Node (l, (\<lambda> j. if j=i 
+       then Some ( (process_output_query (Node (acc@[i],(\<lambda> k. None))) ilist olist ),ops)  else  r j))) 
+       | Some (tree,out) \<Rightarrow>  (Node (l, (\<lambda>j. if j=i then Some ((process_output_query tree ilist olist ),out)
+       else r j)) )) (a#acc) " 
+        using True ra  by simp
+      also have "\<dots>=out_star  (Node (l, (\<lambda>j. if j=i 
+      then Some ((process_output_query (Node (l2,r2)) ilist olist ,outs)) else r j)) ) (a#acc) " 
+        using ra   by (simp add: True)
+      also have "\<dots>=( case out_star (process_output_query  (Node (l2,r2)) ilist olist) acc   of
+     Some (output) \<Rightarrow> Some (outs#output) | None \<Rightarrow> None ) " using ra True 
         by auto
-      finally have calc1:" out_star (a#acc) (process_output_query (ip) (op) (Node (l,r))) 
-= ( case out_star acc (process_output_query ilist olist (Node (l2,r2)))  of Some (output) \<Rightarrow> Some (outs#output) | None \<Rightarrow> None )"
+      finally have calc1:" out_star  (process_output_query (Node (l,r)) (ip) (op) ) (a#acc) 
+      = ( case out_star (process_output_query (Node (l2,r2)) ilist olist ) acc   of
+         Some (output) \<Rightarrow> Some (outs#output) | None \<Rightarrow> None )"
         by blast
-      have " out_star acc (process_output_query ilist olist (Node (l2,r2))) \<noteq> None " using calc1 c(3) Cons True output_query_retains_some_output 
+      have " out_star (process_output_query (Node (l2,r2)) ilist olist ) acc  \<noteq> None "
+        using calc1 c(3) Cons True output_query_retains_some_output 
         by (metis c.prems(1) option.discI option.simps(4)) 
-      then obtain  outputs1 where n1: " out_star acc (process_output_query ilist olist (Node (l2,r2))) = Some (outputs1)" 
+      then obtain  outputs1 where n1: " out_star (process_output_query (Node (l2,r2)) ilist olist ) acc  = Some (outputs1)" 
         by fast 
-      have calc2: "out_star (a#acc) (Node (l,r)) = ( case out_star (acc) (Node (l2,r2)) of Some (output) \<Rightarrow> Some (outs#output) | None \<Rightarrow> None) " using c ra True 
+      have calc2: "out_star (Node (l,r)) (a#acc)  = ( case out_star (Node (l2,r2)) (acc)  
+      of Some (output) \<Rightarrow> Some (outs#output) | None \<Rightarrow> None) " using c ra True 
         by simp
-      then have "out_star acc (Node (l2,r2)) \<noteq> None" using c 
+      then have "out_star (Node (l2,r2)) acc  \<noteq> None" using c 
         by (metis not_Some_eq option.simps(4))
-      then obtain  outputs2 where n2:"out_star acc (Node (l2,r2)) = Some (outputs2)" 
+      then obtain  outputs2 where n2:"out_star  (Node (l2,r2)) acc = Some (outputs2)" 
         by auto
        have "outputs1=outputs2" using c.IH n1 n2 c(2) op Cons 
          using append1_eq_conv length_Cons by fastforce
@@ -441,14 +472,17 @@ next
           by (simp add: n1 n2)
     next
       case False
-    then have " out_star (a#acc) (process_output_query (ip) (op) (Node (l,r))) =  out_star (a#acc) (process_output_query (i#ilist) (ops#olist) (Node (l,r)))" using Cons op 
+      then have " out_star  (process_output_query  (Node (l,r)) (ip) (op)) (a#acc) =  
+      out_star (process_output_query  (Node (l,r)) (i#ilist) (ops#olist) ) (a#acc) " using Cons op 
         by presburger
-      also have "\<dots> =  out_star (a#acc) (case r i of None\<Rightarrow> (Node (l, (\<lambda> j. if j=i then Some ( process_output_query ilist olist (Node (l@[i],(\<lambda> k. None))),ops)  else  r j))) 
-          | Some (tree,out) \<Rightarrow>  (Node (l, (\<lambda>j. if j=i then Some ((process_output_query ilist olist tree),out) else r j)) )) " using False ra 
-        by simp
-      also have "\<dots>=( case out_star acc (Node (l2,r2))  of Some (output) \<Rightarrow> Some ( outs#output) | None \<Rightarrow> None ) " using ra apply (cases "r i")  using False by auto
+      also have "\<dots> =  out_star (case r i of None\<Rightarrow> (Node (l, (\<lambda> j. if j=i 
+      then Some ( process_output_query (Node (l@[i],(\<lambda> k. None))) ilist olist ,ops)  else  r j))) 
+          | Some (tree,out) \<Rightarrow>  (Node (l, (\<lambda>j. if j=i 
+          then Some ((process_output_query tree ilist olist ),out) else r j)) )) (a#acc)  "
+        using False ra   by simp
+      also have "\<dots>=( case out_star (Node (l2,r2)) acc   of Some (output) \<Rightarrow> Some ( outs#output) | None \<Rightarrow> None ) " using ra apply (cases "r i")  using False by auto
         
-      also have "\<dots>= out_star (a#acc) (Node (l,r)) " using ra 
+      also have "\<dots>= out_star (Node (l,r)) (a#acc)  " using ra 
         by simp  
       
       finally show ?thesis  using c Cons 
@@ -459,14 +493,6 @@ qed
 
 
 
-lemma trans_star_length:"trans_star  iss q_0 t=(q,os) \<Longrightarrow> length iss=length os"
-proof (induction iss arbitrary:os q q_0)
-  case Nil
-  then show ?case by auto
-next
-  case (Cons a iss)
-  then show ?case by (auto split:prod.splits option.splits)  
-qed
 
 
 
@@ -475,7 +501,7 @@ proof-
   obtain  q_0 Q t where m: "m=(q_0,Q,t)" 
     using prod_cases3 by blast
   then have "output_query  (q_0,Q,t) iss =os \<Longrightarrow> length iss=length os"using trans_star_length apply  (auto split:prod.splits option.splits)   
-  by fastforce 
+    using trans_star_output_state by fastforce
   then show ?thesis   using m  assms 
     by blast
 qed
@@ -485,8 +511,8 @@ qed
 
 
 
-lemma otree_star_split_none: assumes "t i = None"   "otree_star acc (Node (accq,tq)) = Some (Node (ac,t),ops)" 
-  shows"otree_star (acc@[i]) (Node (accq,tq)) = None"
+lemma otree_star_split_none: assumes "t i = None"   "otree_star (Node (accq,tq)) acc  = Some (Node (ac,t),ops)" 
+  shows"otree_star (Node (accq,tq)) (acc@[i])  = None"
 using assms proof(induction acc arbitrary:  ops accq  tq ac)
   case Nil
   then show ?case 
@@ -501,20 +527,20 @@ next
     case (Some b)
     obtain tr on where b: "b=(tr,on)" 
       by fastforce
-   then have apart_i:" otree_star ((a # acc@[i]) ) (Node (accq, tq)) = (case otree_star (acc@[i]) tr of Some (n,opl) \<Rightarrow> Some (n,on#opl) | None \<Rightarrow> None)" using Some 
+   then have apart_i:" otree_star  (Node (accq, tq))  ((a # acc@[i]) )= (case otree_star tr (acc@[i])  of Some (n,opl) \<Rightarrow> Some (n,on#opl) | None \<Rightarrow> None)" using Some 
       by auto
-    then have apart:" otree_star ((a # acc) ) (Node (accq, tq)) = (case otree_star (acc) tr of Some (n,opl) \<Rightarrow> Some (n,on#opl) | None \<Rightarrow> None)" using Some b
+    then have apart:" otree_star (Node (accq, tq)) ((a # acc) )  = (case otree_star tr (acc)  of Some (n,opl) \<Rightarrow> Some (n,on#opl) | None \<Rightarrow> None)" using Some b
       by auto
 
-    then have " otree_star (acc) tr \<noteq>None" using Some Cons b 
+    then have " otree_star tr (acc)  \<noteq>None" using Some Cons b 
       by (metis option.distinct(1) option.simps(4))
    
-    then obtain opl where opl:" otree_star (acc) tr = Some (Node (ac,t),opl) " using Some Cons b apart 
+    then obtain opl where opl:" otree_star tr (acc)  = Some (Node (ac,t),opl) " using Some Cons b apart 
       by fastforce
  obtain ntq nac where ntq: "tr=Node (nac,ntq)" 
    using b Some Cons 
    by (metis obs_tree.exhaust surj_pair)
-    then have " otree_star (acc @ [i]) (Node (nac,ntq)) = None" using Cons opl 
+    then have " otree_star (Node (nac,ntq)) (acc @ [i])  = None" using Cons opl 
       by blast 
     then show ?thesis using Cons b Some apart opl ntq apart_i 
       by auto 
@@ -522,8 +548,8 @@ next
 qed
 
 
-lemma otree_star_split: assumes "t i = Some (tree,op)"   "otree_star acc (Node (accq,tq)) = Some (Node (ac,t),ops)" 
-  shows"otree_star (acc@[i]) (Node (accq,tq)) = Some (tree,ops@[op])"
+lemma otree_star_split: assumes "t i = Some (tree,op)"   "otree_star (Node (accq,tq)) acc  = Some (Node (ac,t),ops)" 
+  shows"otree_star  (Node (accq,tq)) (acc@[i]) = Some (tree,ops@[op])"
 using assms proof(induction acc arbitrary:  ops accq  tq ac)
   case Nil
   then show ?case 
@@ -539,20 +565,20 @@ next
     case (Some b)
     obtain tr on where b: "b=(tr,on)" 
       by fastforce
-   then have apart_i:" otree_star ((a # acc@[i]) ) (Node (accq, tq)) = (case otree_star (acc@[i]) tr of Some (n,opl) \<Rightarrow> Some (n,on#opl) | None \<Rightarrow> None)" using Some 
+   then have apart_i:" otree_star (Node (accq, tq)) (a # acc@[i])   = (case otree_star  tr  (acc@[i])of Some (n,opl) \<Rightarrow> Some (n,on#opl) | None \<Rightarrow> None)" using Some 
       by auto
-    then have apart:" otree_star ((a # acc) ) (Node (accq, tq)) = (case otree_star (acc) tr of Some (n,opl) \<Rightarrow> Some (n,on#opl) | None \<Rightarrow> None)" using Some b
+    then have apart:" otree_star (Node (accq, tq)) ((a # acc) )  = (case otree_star tr (acc)  of Some (n,opl) \<Rightarrow> Some (n,on#opl) | None \<Rightarrow> None)" using Some b
       by auto
 
-    then have " otree_star (acc) tr \<noteq>None" using Some Cons b 
+    then have " otree_star tr (acc)  \<noteq>None" using Some Cons b 
       by (metis option.distinct(1) option.simps(4))
    
-    then obtain opl where opl:" otree_star (acc) tr = Some (Node (ac,t),opl) " using Some Cons b apart 
+    then obtain opl where opl:" otree_star tr (acc)  = Some (Node (ac,t),opl) " using Some Cons b apart 
       by fastforce
  obtain ntq nac where ntq: "tr=Node (nac,ntq)" 
    using b Some Cons 
    by (metis obs_tree.exhaust surj_pair)
-    then have " otree_star (acc @ [i]) (Node (nac,ntq)) = Some (tree, opl @ [op])" using Cons opl 
+    then have " otree_star  (Node (nac,ntq)) (acc @ [i]) = Some (tree, opl @ [op])" using Cons opl 
       by blast 
     then show ?thesis using Cons b Some apart opl ntq apart_i 
       by auto 
@@ -571,12 +597,12 @@ qed
 
 
 lemma process_op_q_invar:
-  assumes "length inp = length otp " "q_0=(Node (acc,Map.empty))" " otree_star  iss (process_output_query inp otp q_0) = Some (Node (acc2,t),os ) "
+  assumes "length inp = length otp " "q_0=(Node (acc,Map.empty))" " otree_star  (process_output_query q_0 inp otp ) iss  = Some (Node (acc2,t),os ) "
   shows"acc2=acc@iss"
   using assms proof (induction iss arbitrary:inp otp acc acc2 os q_0 t)
   case Nil
-  have "\<exists> t out. otree_star  [] (process_output_query inp otp q_0) = Some (Node (acc,t),out) " using  Nil by (induction inp otp q_0 rule: process_output_query.induct )  auto
-  then obtain t2 out where some:" otree_star  [] (process_output_query inp otp q_0) = Some (Node (acc,t2),out) " 
+  have "\<exists> t out. otree_star  (process_output_query q_0 inp otp )  [] = Some (Node (acc,t),out) " using  Nil by (induction q_0 inp otp  rule: process_output_query.induct )  auto
+  then obtain t2 out where some:" otree_star (process_output_query q_0 inp otp ) []  = Some (Node (acc,t2),out) " 
     by presburger
   then have "acc2=acc" using some Nil 
     by force
@@ -584,23 +610,27 @@ lemma process_op_q_invar:
     by fast
 next
   case cons1:(Cons i1 iss)
-  then show ?case proof (induction inp otp q_0 rule:process_output_query.induct)
-    case (4 i2 ips op ops acc t)
+  then show ?case proof (induction q_0 inp otp  rule:process_output_query.induct)
+    case (4  acc t i2 ips op ops)
 
-    have "i1\<noteq>i2 \<Longrightarrow>  otree_star  (i1#iss) (process_output_query (i2#ips) (op#ops) (Node (acc,t))) = None  " using  Cons  4 
+    have "i1\<noteq>i2 \<Longrightarrow>  otree_star (process_output_query (Node (acc,t)) (i2#ips) (op#ops) )   (i1#iss)  = None  " 
+      using  Cons  4 
       by auto  
     then have i_eq:  "i1=i2" using 4 Cons 
       by fastforce  
     have "t=Map.empty" using 4 
       by fastforce
-    then have two:" otree_star  (i1#iss) (process_output_query (i2#ips) (op#ops) (Node (acc,t))) =(case  otree_star iss (process_output_query ips ops (Node (acc@[i1],Map.empty))) of
-None \<Rightarrow> None | Some (node,opi) \<Rightarrow> Some (node,op#opi))  " using i_eq  
-      by auto
-     then have "otree_star iss (process_output_query ips ops (Node (acc@[i1],Map.empty)))\<noteq> None  " using cons1  4 
+    then have two:" otree_star (process_output_query (Node (acc,t)) (i2#ips) (op#ops) )  (i1#iss)  =
+      (case  otree_star (process_output_query  (Node (acc@[i1],Map.empty)) ips ops) iss  of
+      None \<Rightarrow> None | Some (node,opi) \<Rightarrow> Some (node,op#opi))  " 
+      using i_eq   by auto
+     then have "otree_star (process_output_query (Node (acc@[i1],Map.empty)) ips ops ) iss \<noteq> None  " using cons1  4 
        by (metis option.distinct(1) option.simps(4))
-     then have "\<exists> acc3 t3 outs. otree_star iss (process_output_query ips ops (Node (acc@[i1],Map.empty))) = Some (Node (acc3,t3),outs)" 
+     then have "\<exists> acc3 t3 outs. otree_star (process_output_query (Node (acc@[i1],Map.empty)) ips ops ) iss 
+     = Some (Node (acc3,t3),outs)" 
        by (metis obs_tree.exhaust old.prod.exhaust option.exhaust)
-     then obtain acc3 t3 outs where b: " otree_star iss (process_output_query ips ops (Node (acc@[i1],Map.empty))) = Some (Node (acc3,t3),outs)" 
+     then obtain acc3 t3 outs where b: " otree_star (process_output_query (Node (acc@[i1],Map.empty)) ips ops ) iss 
+     = Some (Node (acc3,t3),outs)" 
        by blast
      have a:"length ips=length ops" using 4 
        by simp
@@ -629,53 +659,55 @@ lemma card_diff:" finite A \<Longrightarrow>card ((A)-B) \<le> card A"unfolding 
 type_synonym ('input,'output) state="('input list set \<times> 'input list set \<times> ('input,'output) obs_tree )"
 
 
-fun invar ::"(('input::finite),'output) state \<Rightarrow> bool" where 
-"invar (S,F,T) =(\<forall> e. \<not>(e\<in>S\<and>e\<in>F)\<and> finite S\<and> finite F \<and> (e\<in>S\<or>e\<in>F\<longrightarrow>out_star e T \<noteq> None)) "
+fun sapart :: "(('input::finite),'output) state \<Rightarrow> bool" where 
+"sapart (S,F,T) = (\<forall> s1\<in> S. \<forall> s2\<in>S. apart_text T s1 s2)"
+
+fun invar ::"('state,('input::finite),'output) mealy \<Rightarrow>(('input::finite),'output) state \<Rightarrow> bool" where 
+"invar m (S,F,T) =((\<forall> e. \<not>(e\<in>S\<and>e\<in>F)\<and> finite S\<and> finite F \<and> (e\<in>S\<or>e\<in>F\<longrightarrow>out_star T e \<noteq> None))\<and> (\<forall> i . out_star T i \<noteq> None \<longrightarrow>out_star T i = Some (output_query m i ))) "
 
 fun transfunc::"(('input::finite),'output) state \<Rightarrow>('input list,'input,'output) transition \<Rightarrow> bool " where
-"transfunc (S,F,T) t = 
-(\<forall> s\<in>S. \<forall> i. (case otree_star s T of Some (Node (acc,tran),op) \<Rightarrow> (case tran i of Some (n,out) \<Rightarrow>
+"transfunc (S,F,T) t  = 
+(\<forall> s\<in>S. \<forall> i. (case otree_star T s  of Some (Node (acc,tran),op) \<Rightarrow> (case tran i of Some (n,out) \<Rightarrow>
  ( if (s@[i]) \<in> S then t (s,i) =  (s@[i],out) else 
  (\<exists> y\<in>S. \<not> apart_text T y (s@[i]) \<and> t (s,i) = (y,out)))   ))) "
 
 
-inductive algo_step::"('state,('input::finite),'output) mealie\<Rightarrow>'input list set \<times>'input list set \<times>('input,'output) obs_tree\<Rightarrow> 'input list set \<times>'input list set \<times>('input,'output) obs_tree\<Rightarrow> bool" 
+inductive algo_step::"('state,('input::finite),'output) mealy\<Rightarrow>'input list set \<times>'input list set \<times>('input,'output) obs_tree\<Rightarrow> 'input list set \<times>'input list set \<times>('input,'output) obs_tree\<Rightarrow> bool" 
   where
 rule1:"\<lbrakk> f\<in>F;\<forall> s\<in>S. apart_text T s f  \<rbrakk> \<Longrightarrow> algo_step m (S,F,T) (S\<union> {f},F-{f},T)  " |
 
-rule2:"\<lbrakk>s\<in>S; (out_star  (s@[i]) T = None); output_query m (s@[i]) =out  \<rbrakk>
- \<Longrightarrow> algo_step m (S,F,T) (S,F\<union>{s@[i]},process_output_query (s@[i]) out T)  " |
+rule2:"\<lbrakk>s\<in>S; (out_star T (s@[i]) = None);
+ output_query m (s@[i]) =out  \<rbrakk>
+ \<Longrightarrow> algo_step m (S,F,T) (S,F\<union>{s@[i]},process_output_query T (s@[i]) out)  " |
 
-rule3:"\<lbrakk> s1\<in>S; s2\<in>S;f\<in>F; \<not> apart_text T f s1; \<not> apart_text T f s2; 
-  apart_witness w T s1 s2 ; output_query m (f@w) =out \<rbrakk> \<Longrightarrow>
- algo_step m (S,F,T) (S,F,process_output_query (f@w) out T)  "|
+rule3:"\<lbrakk> s1\<in>S; s2\<in>S;f\<in>F; \<not> apart_text T f s1;
+ \<not> apart_text T f s2; 
+  apart_witness w T s1 s2 ;
+  output_query m (f@w) =out \<rbrakk> 
+    \<Longrightarrow> algo_step m (S,F,T) (S,F,process_output_query  T (f@w) out )  "|
 
-rule4_step:"\<lbrakk>  \<forall> i. \<not> isolated T S (s@[i]);
-  \<forall> s\<in>S. \<forall> i. out_star  (s@[i]) T \<noteq> None; 
-   fs\<in>F;
+rule4:"\<lbrakk>  \<forall> i. \<not> isolated T S (s@[i]);
+  \<forall> s\<in>S. \<forall> i. out_star T (s@[i])  \<noteq> None; 
+  fs\<in>F;
   s\<in> S; 
   \<not>apart_text T s fs;
-   drop (length s)( trans_star_output (s@inp) q_0 f)  \<noteq>
- drop (length fs ) (trans_star_output (fs@inp) q_0 f) ; 
+  drop (length s)( trans_star_output f  q_0 (s@inp))  \<noteq>
+  drop (length fs ) (trans_star_output f q_0 (fs@inp)) ; 
   output_query (q_0,Q,f) (s@inp) = outs;
   output_query  (q_0,Q,f) (fs@inp) =outf \<rbrakk>
     \<Longrightarrow> algo_step (q_0,Q,f) (S,F,T) 
-(S,F,process_output_query (fs@inp) outf (process_output_query (s@inp) outs T))   " 
+        (S,F,process_output_query (process_output_query T (s@inp) outs ) (fs@inp) outf )   " 
 
 
-text \<open>ich schätze der beweis wird leichter wenn man annimmt das regel 4 nur angewendet wird wenn nötig (aussließlich um isolierungen in F herzustellen)\<close>
 
 
-text \<open> Lemma 3.6 aber ist das sinvoll? brauchen wir nicht eine transition zu jedem nachfolger state von S\<close>
-lemma exists_hypothesis:"\<And> s i. s\<in>S \<Longrightarrow> \<not> isolated T S (s@[i]) \<Longrightarrow> invar (S,F,T) \<Longrightarrow> \<exists> t. transfunc (S,F,T) t  "
-  sorry
 
 
 fun norm_fst :: "(('input::finite),'output) state\<Rightarrow> nat" where
 "norm_fst (S,F,T) =((card S *(card S +1)) div 2)"
 
 fun norm_snd :: "(('input::finite),'output) state\<Rightarrow> nat" where
-"norm_snd (S,F,T) = card {(q,i). q\<in> S \<and>    out_star (q@[i]) T \<noteq>None}"
+"norm_snd (S,F,T) = card {(q,i). q\<in> S \<and>    out_star T (q@[i])  \<noteq>None}"
 fun norm_trd :: "(('input::finite),'output) state\<Rightarrow> nat" where
 "norm_trd (S,F,T) = card {(q,p). q\<in>  S\<and> p\<in> F \<and>apart_text T q p }"
 
@@ -687,20 +719,67 @@ fun norm_set ::"(('input::finite),'output) state \<Rightarrow> nat" where
 
 
 
+   
+
+lemma norm_max:
+  assumes"\<forall> f\<in>F. \<exists> s\<in>S. \<exists> i. f=s@[i] " " finite S "
+  shows"norm_set ((S::('input::finite) list set),F,T) \<le>(card S* (card S+1)) div 2 + 
+(card S *card (UNIV::'input set))+(card S*(card S*card (UNIV::'input set)))"
+proof-
+have fst:"norm_fst (S,F,T) = (card S*(card S+1) div 2)" 
+  by simp
+  have fin_snd:"finite (S\<times>(UNIV::'input set))"  using assms 
+    by auto
+  have "{(q,i). q\<in> S \<and>    out_star T (q@[i])  \<noteq>None} \<subseteq> (S\<times>(UNIV::'input set))" 
+    by blast
+  
+  then have "norm_snd (S,F,T) \<le> (card (S\<times>(UNIV::'input set))) " using fin_snd card_mono  
+    by auto
+  then have snd:"norm_snd (S,F,T) \<le>  card  S *card (UNIV::'input set) " 
+    by (simp add: card_cartesian_product)
+  have fin_trd:"finite  ((\<lambda>(s, i). s @ [i]) ` (S \<times>(UNIV::'input set) )) " using fin_snd 
+    by blast
+
+  have pre:"F \<subseteq> { s@[i]|s i. s\<in>S\<and> i\<in>(UNIV::'input set)}" using assms
+    by blast
+ 
+  
+  have f_image:" { s@[i]|s i. s\<in>S\<and> i\<in>(UNIV::'input set)} = (\<lambda>(s, i). s @ [i]) ` (S \<times>(UNIV::'input set) )"  
+    by fast
+  then have card_pre:"card F \<le> card ( (\<lambda>(s, i). s @ [i]) ` (S \<times>(UNIV::'input set) ))" using fin_trd pre card_mono 
+    by fastforce
+  have "inj_on (\<lambda>(s, i). s @ [i])  (S \<times>(UNIV::'input set) ) " unfolding inj_on_def by (auto split:prod.splits) 
+  then have "card ( (\<lambda>(s, i). s @ [i]) ` (S \<times>(UNIV::'input set) ))= card (S \<times>(UNIV::'input set) )" using card_image  
+    by blast
+  then have card_f_less_cross:"card F \<le> card (S\<times>(UNIV::'input set))" using  card_pre 
+    by argo
+  have subs_trd: "{(q,p). q\<in>  S\<and> p\<in> F \<and>apart_text T q p }\<subseteq> (S\<times>F)" 
+    by blast
+  have "finite (S\<times>F)" using assms 
+    using f_image finite_subset pre by fastforce
+  then have "norm_trd (S,F,T) \<le> card (S\<times>F)" using subs_trd card_mono 
+    by fastforce
+  then have trd:"norm_trd (S,F,T) \<le>  (card S*(card S*card (UNIV::'input set)))" 
+    by (metis (full_types) card_cartesian_product card_f_less_cross dual_order.trans mult_le_mono2 )
+  then show ?thesis using fst snd trd 
+    by force
+qed
+
+
 lemma apart_none:
   assumes " \<not> apart_text T f s1" " \<not> apart_text T f s2 "" apart_witness w T s1 s2"
-  shows "out_star (f@w) T = None "
+  shows "out_star T (f@w)  = None "
   
 proof (rule ccontr)
-  assume ass: "out_star (f@w) T \<noteq> None "
-  obtain x where x:"out_star (s1@w) T = Some x" using assms 
+  assume ass: "out_star T (f@w)  \<noteq> None "
+  obtain x where x:"out_star T (s1@w)  = Some x" using assms 
     by auto 
- obtain y where y:"out_star (s2@w) T = Some y" using assms 
+ obtain y where y:"out_star T (s2@w)  = Some y" using assms 
    by auto 
   have neq:"drop (length s2)y\<noteq> drop (length s1)x" using assms x y 
     by fastforce
   
-  then obtain z where z:"out_star (f@w) T = Some z" using ass
+  then obtain z where z:"out_star T (f@w)  = Some z" using ass
     by blast
   then have a:"drop (length f) z=drop (length s1)x" using z x assms 
     by simp
@@ -710,18 +789,473 @@ proof (rule ccontr)
     by simp
 qed
 lemma not_none_not_both_apart:
-  assumes  "out_star (f@w) T = Some z "" apart_witness w T s1 s2"
+  assumes  "out_star T (f@w)  = Some z "" apart_witness w T s1 s2"
   shows  "  apart_text T f s1\<or> apart_text T f s2 "
   by (metis apart_none assms option.discI)
 
 
+lemma func_sim_of_output_query: 
+  assumes "\<forall>inp x. out_star T inp=Some x \<longrightarrow> output_query m inp =x"
+  shows "\<exists> f. func_sim m T f"
+proof -
+  obtain q_0 S transmealy where m:"m = (q_0,S,transmealy)" 
+    using prod_cases3 by blast
+  have "\<exists> f. \<forall> i. f i = fst (trans_star transmealy q_0 i) " 
+    by auto
+  then obtain f where f:" \<forall> i. f i = fst (trans_star transmealy q_0 i) " 
+    by auto
+  then have one:"f [] = q_0" 
+    by auto
+  have b:"\<forall> inp out. out_star T inp = Some out \<longrightarrow> out= snd (trans_star transmealy q_0 inp)" using assms m 
+    by (simp add: trans_star_output_state)  
+   
+
+   have c:"(\<forall> acc is  ops.  
+    trans_star transmealy ( fst (trans_star transmealy q_0 acc)) is  = 
+    (fst (trans_star transmealy q_0  (acc@is)),drop (length acc) (snd (trans_star transmealy q_0 (acc@is)))))" 
+    using  trans_star_two_nested 
+    by fast
+  then have "(\<forall> acc is  ops.  out_star T (acc@is)  = Some (ops)\<longrightarrow>ops=output_query m (acc@is))" 
+    using  assms by simp
+  then have "(\<forall> acc is  ops.  out_star T (acc@is)  = Some (ops) \<longrightarrow>trans_star transmealy (f acc) is  = 
+(f (acc@is),(drop (length acc) ops))) =
+(\<forall> acc is  ops.  out_star T (acc@is)  = Some (ops) \<longrightarrow>ops=output_query m (acc@is)\<longrightarrow>
+trans_star transmealy (f acc) is  = (f (acc@is),(drop (length acc) ops))) " 
+    by presburger
+  also have "\<dots>=(\<forall> acc is  ops.  out_star T (acc@is)  = Some (ops) \<longrightarrow>ops=output_query m (acc@is)\<longrightarrow>
+trans_star transmealy (fst (trans_star transmealy q_0 acc)) is  = 
+(fst (trans_star transmealy q_0 (acc@is)),(drop (length acc) ops)))" using f 
+    by presburger
+  also have "\<dots>=(\<forall> acc is  ops.  out_star T (acc@is)  = Some (ops) \<longrightarrow>ops=
+ snd (trans_star transmealy q_0  (acc@is))\<longrightarrow>
+trans_star transmealy (fst (trans_star transmealy q_0 acc)) is  = 
+(fst (trans_star transmealy q_0 (acc@is)),(drop (length acc) (snd (trans_star transmealy q_0 (acc@is))))))" 
+    using b   
+    by (simp add: trans_star_two_nested) 
+  finally have calc:"(\<forall> acc is  ops.  out_star T (acc@is)  = Some (ops) \<longrightarrow>
+trans_star transmealy (f acc) is  = (f (acc@is),(drop (length acc) ops)))" using c 
+      by presburger
+     have "func_sim m T f" unfolding func_sim_def  apply (auto simp:one m) 
+       using calc by auto
+     then show ?thesis 
+       by auto
+   qed
+    
+lemma assumes "func_sim (m::(('state::finite,'input::finite,'output) mealy) ) T f "
+      " sapart (S,F,T) "
+      " finite S  "
+    shows " card S \<le> card (UNIV:: 'state set) "
+proof (rule ccontr)
+  assume "  \<not> card S \<le> card (UNIV:: 'state set) "
+  then have gt:"card S > card (UNIV:: 'state set)" 
+    by simp
+  obtain c  where c:"card (UNIV:: 'state set) =c "
+    by simp
+  have "\<forall> s\<in>S. f s \<in> (UNIV:: 'state set) " 
+    by simp  
+  have "\<exists> s1 \<in>S. \<exists> s2\<in> S. f s1 = f s2 "  using gt assms 
+    by (metis all_not_in_conv card.empty finite_UNIV_card_ge_0 finite_code order_less_irrefl order_less_trans)  
+  then show False using apart_sim gt assms 
+    by fastforce
+qed
+
+lemma assumes "(out_star T i = Some (output_query m i )) ""output_query m j=out "
+" T'=process_output_query T j out "
+shows " ( out_star T' i \<noteq> None \<longrightarrow>out_star T' i = Some (output_query m i )) "
+  using assms proof-
+  have "length j = length out" using assms 
+    using output_query_length by blast
+  then have "out_star T i =out_star T' i" using output_query_retains_some_specific_output assms  
+    by (smt (verit) out_star.elims out_star.simps(1))
+   then show ?thesis using assms 
+     by force 
+ qed
+
+lemma op_query_output_not_equal:
+  assumes "i\<noteq>j"
+  shows " out_star (process_output_query  (Node (acc,t)) (i#is) (op#ops)) (j#js) =out_star (Node (acc,t)) (j#js)  "
+proof -
+  have "(process_output_query  (Node (acc,t)) (i#is) (op#ops)) =(case t i of 
+None\<Rightarrow> (Node (acc, (\<lambda> j. if j=i then Some ( process_output_query (Node (acc@[i],(\<lambda> k. None))) is ops ,op)  else  t j))) 
+| Some (tree,out) \<Rightarrow>  (Node (acc, (\<lambda>j. if j=i then Some ((process_output_query tree is ops ),out) else t j)) )) " 
+    by simp
+  then show ?thesis  proof (cases "t i")
+    case None
+    then  have eq:"(process_output_query  (Node (acc,t)) (i#is) (op#ops)) =
+(Node (acc, (\<lambda> j. if j=i then Some ( process_output_query (Node (acc@[i],(\<lambda> k. None))) is ops ,op)  else  t j))) " 
+      by simp
+    have " out_star (Node (acc, (\<lambda> j. if j=i then Some ( process_output_query (Node (acc@[i],(\<lambda> k. None))) is ops ,op)  else  t j))) (j#js) = 
+  out_star (Node (acc,t)) (j#js)  " using assms 
+      by auto
+    then show ?thesis using eq 
+      by argo
+  next
+    case (Some a)
+    obtain tree out where "a=(tree,out) " 
+      by fastforce 
+    then  have eq:"(process_output_query  (Node (acc,t)) (i#is) (op#ops)) =
+  (Node (acc, (\<lambda>j. if j=i then Some ((process_output_query tree is ops ),out) else t j)) ) " using Some 
+      by fastforce
+ have " out_star (Node (acc, (\<lambda>j. if j=i then Some ((process_output_query tree is ops ),out) else t j)) ) (j#js) = 
+  out_star (Node (acc,t)) (j#js)  " using assms  
+   by auto
+    then show ?thesis using eq 
+      by argo
+  qed
+qed
+
+lemma  substring_different_query:
+  assumes "(out_star T i =None) " "length  j=length out "
+ " out_star (process_output_query T j out) i \<noteq> None"
+shows "\<exists> y. j=i@y"
+using assms proof(induction i arbitrary:out j T)
+  case Nil
+  then show ?case 
+    by blast
+next
+  case (Cons a i)
+  obtain acc t  where node:"T=Node (acc,t)" 
+    using obs_tree.exhaust by auto
+  have lenj:"length j = length out" using Cons 
+    using output_query_length by blast
+
+  then show ?case proof (cases "j=[]")
+    case True
+    then show ?thesis using Cons 
+      using lenj by auto
+  next
+    case False
+    then obtain jfront js where j:" j=jfront#js" 
+      using list.exhaust by auto
+        then obtain op os where out:" out=op#os" 
+      using list.exhaust lenj 
+      by (metis False length_greater_0_conv)
+          have induc_two:"length js= length os" using lenj j out 
+            by auto
+    
+    then show ?thesis proof (cases "jfront=a")
+      case eq:True
+      then show ?thesis proof (cases "t jfront")
+        case None
+    
+       
+        have proc:"(process_output_query T (jfront#js) (op#os)) = 
+ (Node (acc, (\<lambda> j. if j=jfront then Some ( process_output_query (Node (acc@[jfront],(\<lambda> k. None))) js os ,op) 
+ else  t j))) " using node  None
+          by auto
+     
+        then  have " out_star (process_output_query T (jfront#js) (op#os)) (a # i) =
+out_star (Node (acc, (\<lambda> j. if j=jfront then Some ( process_output_query (Node (acc@[jfront],(\<lambda> k. None))) js os ,op) 
+ else  t j))) (a#i)  " 
+          by force
+        also have b:"\<dots> = (case (\<lambda> j. if j=jfront then Some ( process_output_query (Node (acc@[jfront],(\<lambda> k. None))) js os ,op) 
+ else  t j) a of Some (n,op) \<Rightarrow>
+ (case (out_star  n i) of Some (ops) \<Rightarrow> Some (op#ops)| None \<Rightarrow> None ) | None \<Rightarrow> None) "  
+          by auto
+        also have c :"\<dots> = 
+ (case (out_star  ( process_output_query (Node (acc@[jfront],(\<lambda> k. None))) js os) i) of Some (ops) \<Rightarrow> Some (op#ops)| None \<Rightarrow> None ) " 
+          using eq 
+          by auto
+
+        have induc_three:"(out_star  ( process_output_query (Node (acc@[jfront],(\<lambda> k. None))) js os) i) \<noteq> None " 
+          using calculation Cons proc 
+          by (metis c j option.simps(4) out)
+        
+       
+        
+
+        then show ?thesis proof(cases "i=[]")
+          case True
+          then show ?thesis 
+            by (simp add: eq j) 
+        next
+          case False
+          obtain ifront "is" where "i=ifront#is" using False 
+            using list.exhaust by auto
+          then have "(out_star  (Node (acc@[jfront],(\<lambda> k. None))) i  ) = (case (\<lambda> k. None) ifront of Some (n,op) \<Rightarrow>
+ (case (out_star  n is) of Some (ops) \<Rightarrow> Some (op#ops)| None \<Rightarrow> None ) | None \<Rightarrow> None)" 
+            by simp
+          then have induc_one:"(out_star  (Node (acc@[jfront],(\<lambda> k. None))) i  ) = None" 
+            by auto  
+
+          
+          show ?thesis  
+            using Cons.IH[of "(Node (acc@[jfront],(\<lambda> k. None)))" js os ] 
+               induc_one  induc_two induc_three eq  j by auto 
+        qed
+      next
+        case (Some b)
+        obtain atree aout where atree:"b =(atree,aout)"
+          by (metis  surj_pair)
+        then have proc:"(process_output_query T (jfront#js) (op#os)) = 
+ Node (acc, (\<lambda>j. if j=jfront then Some ((process_output_query atree js os ),aout) else t j)) " 
+          using node Some 
+          by auto
+        then have "out_star (process_output_query T (jfront#js) (op#os)) (a#i) =
+out_star ( Node (acc, (\<lambda>j. if j=jfront then Some ((process_output_query atree js os ),aout) else t j))) (a#i)"
+          by argo
+        also have "\<dots>=(case (\<lambda>j. if j=jfront then Some ((process_output_query atree js os ),aout) else t j) a of Some (n,op) \<Rightarrow>
+ (case (out_star  n i) of Some (ops) \<Rightarrow> Some (op#ops)| None \<Rightarrow> None ) | None \<Rightarrow> None)" 
+          by simp
+         also have c :"\<dots> = 
+ (case (out_star  ( process_output_query atree js os) i) of Some (ops) \<Rightarrow> Some (aout#ops)| None \<Rightarrow> None ) " 
+          using eq 
+          by auto
+        finally have induc_three:"out_star  ( process_output_query atree js os) i \<noteq> None" using Cons 
+          by (metis j option.simps(4) out)
+        have "(case t a of Some (n,op) \<Rightarrow>
+ (case (out_star  n i) of Some (ops) \<Rightarrow> Some (op#ops)| None \<Rightarrow> None ) | None \<Rightarrow> None) = None" using Cons node 
+          by auto
+        then have "(case (out_star  atree i) of Some (ops) \<Rightarrow> Some (aout#ops)| None \<Rightarrow> None ) = None" 
+          using Some atree eq   by auto
+        then have induc_one:"out_star atree i = None" 
+          using not_None_eq by fastforce
+        
+     
+        then show ?thesis using induc_one induc_two induc_three Cons j 
+          by (simp add: eq) 
+      qed
+    next
+      case False
+      
+      then show ?thesis using op_query_output_not_equal j node out Cons 
+        by metis
+    qed
+  qed
+qed
+
+lemma output_query_keeps_invar_aux:
+  assumes   "(out_star T i =None) " "trans_star_output  t q_0 j=out "
+" T'=process_output_query T j out " "\<forall> k y . out_star T k = Some y \<longrightarrow> trans_star_output t q_0 k = y"
+shows " ( out_star T' i \<noteq> None \<longrightarrow>out_star T' i = Some (trans_star_output  t q_0 i )) "
+proof (cases "out_star T' i = None")
+  case True
+  then show ?thesis 
+    by blast
+next
+  case False
+  have lenj:"length j = length out" 
+    using assms(2)  trans_star_length  trans_star_output_state 
+    by fast
+  then have subs:"\<exists> y. j=i@y" using substring_different_query False assms 
+    by blast 
+  then show ?thesis using assms lenj proof (induction i arbitrary: q_0 j out T  T')
+    case Nil
+    then show ?case 
+      by simp
+  next
+    case (Cons a i)
+    obtain acc f where T:"T= Node (acc,f)" 
+      using obs_tree.exhaust by auto
+    obtain acc' f' where T':"T' = Node (acc',f')" 
+      using obs_tree.exhaust by auto
+    obtain b js where j:"j= b#js" using  Cons 
+      by auto
+    obtain op os where out:"out= op#os" using  Cons 
+      by (metis j length_Suc_conv)
+      obtain q' out' where q':"t (q_0, a) = (q',out')" 
+        by fastforce
+    have eq:"b=a" using subs j Cons 
+      by auto  
+
+      have ih_prem1:"\<exists>y. js = i @ y" 
+        using Cons.prems(1) j by auto
+
+        have ih_prem3:" trans_star_output t q' js = os" 
+          using Cons.prems(3) eq j out q' by auto
+
+      
+        have ih_prem5: "length js = length os " 
+          using Cons.prems(6) j out by auto
+     show ?case proof (cases "f a")
+      case None
+
+      have query:"process_output_query (Node (acc,f)) (b#js) (op#os) = (Node (acc, (\<lambda> k. if k=b
+ then Some ( process_output_query (Node (acc@[b],(\<lambda> k. None))) js os ,op)  else  f k)))" 
+        using Cons  None eq   by auto
+      have "out_star T' (a#i) = out_star (process_output_query (Node (acc,f)) (b#js) (op#os)) (a#i) " 
+        using Cons j out T 
+        by argo
+      also have "\<dots>=out_star (Node (acc, (\<lambda> k. if k=b then 
+      Some ( process_output_query (Node (acc@[b],(\<lambda> k. None))) js os ,op)  else  f k))) (a#i)" 
+        using query by argo
+      also have "\<dots>=(case (\<lambda> k. if k=b then 
+      Some ( process_output_query (Node (acc@[b],(\<lambda> k. None))) js os ,op)  else  f k) a of Some (n,op) \<Rightarrow>
+ (case (out_star  n i) of Some (ops) \<Rightarrow> Some (op#ops)| None \<Rightarrow> None ) | None \<Rightarrow> None)" 
+        by simp
+      also have "\<dots>=  (case (out_star  (process_output_query (Node (acc@[b],(\<lambda> k. None))) js os) i) of 
+          Some (ops) \<Rightarrow> Some (op#ops)| None \<Rightarrow> None )" 
+        by (simp add: eq)
 
 
 
+      
+ 
+   
+      then show ?thesis proof (cases "i")
+        case Nil
+        then show ?thesis 
+          using Cons.prems(3) Cons.prems(4) T q' eq j out query by auto
+      next
+        case (Cons c list)
+        have ih_prem2:" out_star (Node (acc @ [b], \<lambda>k. None)) i = None"  using Cons
+          by fastforce
 
-lemma assumes "algo_step m ((S:: ('input::finite) list set),F,T) (S',F',T') " " invar (S,F,T) "
+        
+        obtain T'' where  T'':"T''=  process_output_query (Node (acc @ [b], \<lambda>k. None)) js os"  
+          by simp
+         have ih_prem4:"\<forall>k y. out_star (Node (acc @ [b], \<lambda>k. None)) k = Some y \<longrightarrow> trans_star_output t q' k = y " 
+          by (metis Cons.prems(5) eq list.exhaust out_split out_star.simps(1) trans_star_output.simps(1))
+   have "(out_star  T'' i)\<noteq> None \<longrightarrow>
+      (out_star  T'' i) = Some (trans_star_output  t q' i )  "
+        using Cons.IH[of js "(Node (acc@[b],(\<lambda> k. None)))" q' os T''  ]   ih_prem1 ih_prem2 ih_prem3 ih_prem4 T''  ih_prem5  
+        by blast 
+      then have "(out_star  ( process_output_query (Node (acc @ [b], \<lambda>k. None)) js os) i)\<noteq> None \<longrightarrow>
+      (out_star  ( process_output_query (Node (acc @ [b], \<lambda>k. None)) js os) i) = Some (trans_star_output  t q' i )  " using T'' 
+        by blast
+        
+        then show ?thesis 
+          using Cons.prems(3) calculation eq j out q' by auto  
+      qed
+    next
+      case (Some c)
+      obtain nextnode nextout where nextnode:"c= (nextnode,nextout)"  
+        by fastforce
+      have query:"process_output_query (Node (acc,f)) (b#js) (op#os) =
+      (Node (acc, (\<lambda>j. if j=b then Some ((process_output_query nextnode js os ),nextout) else f j)) )" 
+        using eq nextnode Some
+        by auto
+      then have a:"out_star  (process_output_query (Node (acc,f)) (b#js) (op#os)) (a#i) = 
+out_star (Node (acc, (\<lambda>j. if j=b then Some ((process_output_query nextnode js os ),nextout) else f j)) ) (a#i) "
+        by presburger
+      also have b:"\<dots>=(case (\<lambda>j. if j=b then Some ((process_output_query nextnode js os ),nextout) else f j) a of 
+Some (n,op) \<Rightarrow> (case (out_star  n i) of Some (ops) \<Rightarrow> Some (op#ops)| None \<Rightarrow> None ) | None \<Rightarrow> None)" 
+        by simp
+      also have c:"\<dots>=  (case (out_star  (process_output_query nextnode js os ) i) of Some (ops) \<Rightarrow> Some (nextout#ops)| None \<Rightarrow> None ) "
+        by (simp add: eq)
+      have "out_star T (a#i) =  (case (out_star  nextnode i) of Some (ops) \<Rightarrow> Some (nextout#ops)| None \<Rightarrow> None ) " 
+        using T  nextnode Some
+        by auto
+      then have  ih_prem2:"out_star nextnode i = None" using Cons 
+        by (metis not_None_eq option.simps(5))
+        obtain T'' where  T'':"T''=  process_output_query nextnode js os"  
+          by simp
+        have alt_nextout:"out_star T [a] = Some [nextout] " using Some nextnode T 
+          by simp
+        have alt_out':"trans_star_output t q_0 [a] = [out']" using q' 
+          by simp
+        have "out_star T [a] \<noteq>None \<longrightarrow>Some (trans_star_output t q_0 [a]) = out_star T [a] " using Cons 
+          by fastforce
+      
+        then have nextout_eq_out':"nextout=out'" using alt_out' alt_nextout 
+          by simp 
+          
+        have part:"\<forall>k. out_star T  (a#k)  = 
+ (case (out_star  nextnode k) of Some (ops) \<Rightarrow> Some (nextout#ops)| None \<Rightarrow> None ) " 
+          using T  Some nextnode   
+          by auto 
+      have part2: "\<forall> k .trans_star_output t q_0 (a#k) = out'#trans_star_output t q' k" using q'  
+        by simp
+        have "\<forall>k y. out_star T (a#k) = Some (out'#y) \<longrightarrow> trans_star_output t q_0 (a#k) = (out'#y)"  using Cons 
+          by fastforce
+        then have ih_prem4:"\<forall> k y. out_star nextnode (k) = Some y \<longrightarrow> trans_star_output t q' (k) = y"
+          using part q' part2  nextout_eq_out' 
+          by auto
+          
+          
+      have "(out_star  (process_output_query nextnode js os ) i) \<noteq> None \<longrightarrow>
+out_star  (process_output_query nextnode js os )  i = Some (trans_star_output  t q' i )"
+        using Cons.IH[of js nextnode q' os "  (process_output_query nextnode js os )" ] 
+            ih_prem1 ih_prem2 ih_prem3 ih_prem4 ih_prem5 T'' nextnode  Some   
+        by argo
+      then show ?thesis 
+        using Cons.prems(4) T c calculation j nextout_eq_out' option.simps(4) out part2 by auto
+    qed
+  qed
+qed
+
+lemma output_query_keeps_invar:
+  assumes   "(out_star T i =None) " "output_query m j=out "
+ "\<forall> k y . out_star T k = Some y \<longrightarrow> output_query m k = y"
+shows " ( out_star (process_output_query T j out ) i \<noteq> None \<longrightarrow>out_star (process_output_query T j out ) i = Some (output_query m i )) "
+proof -
+  obtain t S q_0 where "m= (q_0,S,t)" 
+    using prod_cases3 by blast
+  then have "\<forall> is. output_query (m) is = trans_star_output t q_0 is" 
+    by simp
+  then show ?thesis 
+    by (metis (mono_tags, lifting) assms output_query_keeps_invar_aux)
+qed
+ 
+lemma  algo_step_keeps_invar:
+  assumes  "algo_step m ((S:: ('input::finite) list set),F,T) (S',F',T')" " invar m (S,F,T)"
+  shows "invar m (S',F',T')"
+using assms proof(induction rule: algo_step.induct)
+  case (rule1 f F S T m)
+  then show ?case  
+    by auto
+next
+  case (rule2 s S T i m out F)
+ have lens:"length (s@[i]) = length out" using rule2 
+    using output_query_length by blast
+  have  "\<forall> e. (e\<in>S\<or>e\<in>F\<longrightarrow>out_star T e \<noteq> None)" using rule2 
+    by auto
+  then have  a:"\<forall> e. (e\<in>S\<or>e\<in>F\<union> {s@[i]}\<longrightarrow>out_star (process_output_query T (s @ [i]) out)  e \<noteq> None)" 
+    using lens out_star.elims output_query_retains_some_output process_op_query_not_none_output 
+    by (metis Un_empty_right Un_insert_right insert_iff not_Cons_self2)   
+ 
+
+  
+  have "\<forall>k y. out_star T k = Some y \<longrightarrow> output_query m k = y " using rule2 
+    by force
+  then have c:"(\<forall> j . out_star (process_output_query T (s @ [i]) out) j \<noteq> None \<longrightarrow>
+  out_star (process_output_query T (s @ [i]) out) j = Some (output_query m j ))"
+    using  rule2 output_query_keeps_invar[of T "s@[i]" m "s@[i]" out]   
+    by (smt (verit) invar.simps lens out_star.elims output_query_keeps_invar output_query_retains_some_specific_output)
+   show ?case   using rule2  by (auto simp:c a )  
+next
+  case (rule3 s1 S s2 f F T w m out)
+ have lens:"length (f @ w) = length out" using rule3
+    using output_query_length 
+    by blast
+  have "\<forall>k y. out_star T k = Some y \<longrightarrow> output_query m k = y " using rule3
+    by force
+  then have c:"(\<forall> j . out_star (process_output_query T (f @ w) out) j \<noteq> None \<longrightarrow>
+  out_star (process_output_query T (f @ w) out) j = Some (output_query m j ))"
+    using  rule3 output_query_keeps_invar 
+    by (smt (verit, del_insts) invar.simps lens out_star.elims output_query_retains_some_specific_output)
+  then show ?case using rule3 c 
+    by (smt (verit, del_insts) invar.simps lens output_query_retains_some_output) 
+next
+  case (rule4 T S s fs F f q_0 inp Q outs outf)
+have lens:"length (s@inp) = length outs" using rule4
+    using output_query_length 
+    by blast
+have lenf:"length (fs@inp) = length outf" using rule4
+    using output_query_length 
+    by blast
+have "\<forall>k y. out_star T k = Some y \<longrightarrow> output_query (q_0, Q, f) k = y " using rule4
+  by auto
+  
+  then have "(\<forall> j . out_star (process_output_query T (s @ inp) outs) j \<noteq> None \<longrightarrow>
+  out_star (process_output_query T (s @ inp) outs) j = Some (output_query (q_0, Q, f) j ))"
+    using  rule4 output_query_keeps_invar  
+    by (smt (verit, del_insts) invar.simps lens out_star.elims output_query_retains_some_specific_output)
+  then have c:"(\<forall> j . out_star (process_output_query (process_output_query T (s @ inp) outs) (fs @ inp) outf) j \<noteq> None \<longrightarrow>
+  out_star (process_output_query (process_output_query T (s @ inp) outs) (fs @ inp) outf) j = Some (output_query (q_0, Q, f) j ))"
+    using  rule4 output_query_keeps_invar[of  "(process_output_query T (s @ inp) outs)" _ "(q_0, Q, f)" "fs@inp" outf ]   
+    by (smt (verit) lenf option.discI option.inject out_star.elims output_query_retains_some_specific_output process_output_query.simps(1))
+ 
+  then show ?case using rule4 c 
+    by (smt (verit, del_insts) invar.simps lenf lens output_query_retains_some_output)
+qed 
+
+
+theorem assumes "algo_step m ((S:: ('input::finite) list set),F,T) (S',F',T') " " invar m (S,F,T) "
   shows "norm_set (S,F,T) < norm_set (S',F',T')"
 using assms proof(induction m  "(S,F,T)" "(S',F',T')" rule: algo_step.induct)
+
+
   case (rule1 f m)
     have finS:"finite S" using rule1(6) 
       by simp
@@ -743,11 +1277,14 @@ using assms proof(induction m  "(S,F,T)" "(S',F',T')" rule: algo_step.induct)
     by fast
   then have finp2:"finite {(q,(i)). q\<in>S\<union>{f}\<and>i\<in>(UNIV::'input set)} " using finp 
     by argo
-   have "{(q, i). (q = f \<or> q \<in> S) \<and> (\<exists>a b. out_star (q @ [i]) T = Some ( b))} \<subseteq> {(q,i). q\<in>S\<union>{f}\<and> i\<in> (UNIV::'input set)}" 
+  have "{(q, i). (q = f \<or> q \<in> S) \<and> (\<exists>a b. out_star T (q @ [i])  = Some ( b))} \<subseteq> 
+    {(q,i). q\<in>S\<union>{f}\<and> i\<in> (UNIV::'input set)}" 
      by auto
-  then have fin2: "finite {(q, i). (q = f \<or> q \<in> S) \<and> (\<exists>a b. out_star (q @ [i]) T = Some ( b))}" using finp2  finite_subset  
+   then have fin2: "finite {(q, i). (q = f \<or> q \<in> S) \<and> (\<exists>a b. out_star T (q @ [i])  = Some ( b))}" 
+     using finp2  finite_subset  
     by fast
-  have " {(q, i). q \<in> S \<and> (\<exists> b. out_star (q @ [i]) T = Some ( b))}\<subseteq> {(q, i). (q = f \<or> q \<in> S) \<and> (\<exists> b. out_star (q @ [i]) T = Some ( b))} " 
+  have " {(q, i). q \<in> S \<and> (\<exists> b. out_star T (q @ [i])  = Some ( b))}\<subseteq> 
+    {(q, i). (q = f \<or> q \<in> S) \<and> (\<exists> b. out_star T (q @ [i])  = Some ( b))} " 
     by blast
  then have "norm_snd (S,F,T)\<le> norm_snd (S \<union> {f}, F - {f}, T)" using fin2 card_mono 
    by fastforce  
@@ -757,28 +1294,40 @@ using assms proof(induction m  "(S,F,T)" "(S',F',T')" rule: algo_step.induct)
 
   have finSF:"finite   {(q,p).(q\<in>S\<or>q=f)\<and>  p\<in>F}" using finS finF 
     by simp 
-  have " {(q, p). (q = f \<or> q \<in> S) \<and> p \<in> F \<and> p \<noteq> f \<and> (\<exists>i x. ( out_star (q @ i) T = Some ( x)) \<and> (\<exists> y. out_star (p @ i) T = Some ( y) \<and>drop (length q) x \<noteq>drop (length p) y))}\<subseteq> {(q,p).(q\<in>S\<or>q=f)\<and>  p\<in>F}" 
+  have " {(q, p). (q = f \<or> q \<in> S) \<and> p \<in> F \<and> p \<noteq> f \<and> (\<exists>i x. ( out_star T (q @ i)  = Some ( x)) \<and>
+     (\<exists> y. out_star T (p @ i)  = Some ( y) \<and>drop (length q) x \<noteq>drop (length p) y))}\<subseteq> {(q,p).(q\<in>S\<or>q=f)\<and>  p\<in>F}" 
     by blast
-  then have fin3:"finite  {(q, p). (q = f \<or> q \<in> S) \<and> p \<in> F \<and> p \<noteq> f \<and> (\<exists>i x. ( out_star (q @ i) T = Some ( x)) \<and> (\<exists> y. out_star (p @ i) T = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}" using finSF finite_subset 
+  then have fin3:"finite  {(q, p). (q = f \<or> q \<in> S) \<and> p \<in> F \<and> p \<noteq> f \<and> 
+    (\<exists>i x. ( out_star T (q @ i)  = Some ( x)) \<and> (\<exists> y. out_star T (p @ i)  = Some ( y) \<and> 
+    drop (length q) x \<noteq>drop (length p) y))}" using finSF finite_subset 
     by fast
 
-  have "  {(q, p). (q = f \<or> q \<in> S) \<and> p \<in> F \<and> p \<noteq> f \<and> (\<exists>i x. ( out_star (q @ i) T = Some (x)) \<and> (\<exists> y. out_star (p @ i) T = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}\<supseteq>
-{(q, p). ( q \<in> S) \<and> p \<in> F \<and> p\<noteq>f  \<and> (\<exists>i x. ( out_star (q @ i) T = Some ( x)) \<and> (\<exists> y. out_star (p @ i) T = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}" 
+  have "  {(q, p). (q = f \<or> q \<in> S) \<and> p \<in> F \<and> p \<noteq> f \<and> (\<exists>i x. ( out_star T (q @ i) = Some (x))
+     \<and> (\<exists> y. out_star T (p @ i)  = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}\<supseteq>
+    {(q, p). ( q \<in> S) \<and> p \<in> F \<and> p\<noteq>f  \<and> (\<exists>i x. ( out_star T (q @ i)  = Some ( x)) \<and> 
+    (\<exists> y. out_star T (p @ i)  = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}" 
     by blast
-  also have c1: "\<dots>\<supseteq>{(q, p). ( q \<in> S) \<and> p \<in> F   \<and> (\<exists>i x. ( out_star (q @ i) T = Some ( x)) \<and> (\<exists> y. out_star (p @ i) T = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}- {(p,q). p\<in>S \<and> q=f} " 
+  also have c1: "\<dots>\<supseteq>{(q, p). ( q \<in> S) \<and> p \<in> F   \<and> (\<exists>i x. ( out_star T (q @ i)  = Some ( x)) \<and> 
+    (\<exists> y. out_star T (p @ i) = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}- {(p,q). p\<in>S \<and> q=f} " 
     by auto
    have "finite {(p,q). p\<in>S \<and> q=f}" using rule1 
     by simp
-  then have le1: "card {(q, p). ( q \<in> S) \<and> p \<in> F   \<and> (\<exists>i x. ( out_star (q @ i) T = Some ( x)) \<and> (\<exists> y. out_star (p @ i) T = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}- card {(p,q). p\<in>S \<and> q=f}
-\<le>card ({(q, p). ( q \<in> S) \<and> p \<in> F   \<and> (\<exists>i x. ( out_star (q @ i) T = Some ( x)) \<and> (\<exists> y. out_star (p @ i) T = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}- {(p,q). p\<in>S \<and> q=f})" using diff_card_le_card_Diff 
-    by blast
-  have le2:"card ({(q, p). ( q \<in> S) \<and> p \<in> F   \<and> (\<exists>i x. ( out_star (q @ i) T = Some ( x)) \<and> (\<exists> y. out_star (p @ i) T = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}- {(p,q). p\<in>S \<and> q=f})\<le>
- card ( {(q, p). (q = f \<or> q \<in> S) \<and> p \<in> F \<and> p \<noteq> f \<and> (\<exists>i x. ( out_star (q @ i) T = Some ( x)) \<and> (\<exists> y. out_star (p @ i) T = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))})" 
+  then have le1: "card {(q, p). ( q \<in> S) \<and> p \<in> F   \<and> (\<exists>i x. ( out_star T (q @ i)  = Some ( x)) \<and> 
+  (\<exists> y. out_star T (p @ i)  = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}- card {(p,q). p\<in>S \<and> q=f}
+  \<le>card ({(q, p). ( q \<in> S) \<and> p \<in> F   \<and> (\<exists>i x. ( out_star T (q @ i)  = Some ( x)) \<and> 
+  (\<exists> y. out_star T (p @ i)  = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}- {(p,q). p\<in>S \<and> q=f})" 
+    using diff_card_le_card_Diff    by blast
+  have le2:"card ({(q, p). ( q \<in> S) \<and> p \<in> F   \<and> (\<exists>i x. ( out_star T (q @ i)  = Some ( x)) \<and> 
+  (\<exists> y. out_star T (p @ i)  = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}- {(p,q). p\<in>S \<and> q=f})\<le>
+  card ( {(q, p). (q = f \<or> q \<in> S) \<and> p \<in> F \<and> p \<noteq> f \<and> (\<exists>i x. ( out_star T (q @ i)  = Some ( x)) \<and> 
+  (\<exists> y. out_star T (p @ i)  = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))})" 
     using calculation fin3 card_mono  c1 
     by meson
 
 
-  have "norm_trd (S\<union> {f},F -{f},T) \<ge>card {(q, p). ( q \<in> S) \<and> p \<in> F   \<and> (\<exists>i x. ( out_star (q @ i) T = Some ( x)) \<and> (\<exists> y. out_star (p @ i) T = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}- card {(p,q). p\<in>S \<and> q=f} "
+  have "norm_trd (S\<union> {f},F -{f},T) \<ge>card {(q, p). ( q \<in> S) \<and> p \<in> F   \<and> 
+  (\<exists>i x. ( out_star T (q @ i)  = Some ( x)) \<and> (\<exists> y. out_star T (p @ i)  = Some ( y) \<and>
+   drop (length q) x \<noteq>drop (length p) y))}- card {(p,q). p\<in>S \<and> q=f} "
     using le1 le2 
     by simp
   then have "norm_trd (S\<union> {f},F -{f},T) \<ge> norm_trd (S,F,T)- card {(p,q). p\<in>S \<and> q=f} "  
@@ -809,11 +1358,12 @@ have finS':"finite S'" using rule2
   have lens:"length (s@[i]) = length out" 
     using output_query_length rule2.hyps(3) by blast
 
-  then have a: "out_star  (s@[i]) T' \<noteq> None" using process_op_query_not_none_output rule2 
+  then have a: "out_star  T' (s@[i])  \<noteq> None" 
+    using process_op_query_not_none_output rule2 
     by (metis obs_tree.exhaust old.prod.exhaust)
-  have  retain:"\<forall> is. out_star is T\<noteq>None \<longrightarrow> out_star is T' \<noteq> None" using rule2 lens  
-    using output_query_retains_some_output by blast
-  have "{q \<in> S. \<forall>i. \<exists>a b. q\<noteq>s\<and> otree_star (q @ [i]) T' = Some (a, b)}\<subseteq>S" 
+  have  retain:"\<forall> is. out_star T is \<noteq>None \<longrightarrow> out_star T' is  \<noteq> None" 
+    using rule2 lens output_query_retains_some_output by blast
+  have "{q \<in> S. \<forall>i. \<exists>a b. q\<noteq>s\<and> otree_star T' (q @ [i]) = Some (a, b)}\<subseteq>S" 
     by force
    have finp: "finite  ({q. q\<in>S} \<times> {i. i\<in>(UNIV::'input set)})"
  using finS finI 
@@ -822,33 +1372,39 @@ have finS':"finite S'" using rule2
     by fast
   then have finp2:"finite {(q,(i)). q\<in>S\<and>i\<in>(UNIV::'input set)} " using finp 
     by argo
-   have "{(q, i'). \<not>(q=s\<and>i'=i) \<and> ( q \<in> S) \<and> (\<exists> b. out_star (q @ [i']) T' = Some ( b))} \<subseteq> {(q,i). q\<in>S\<and> i\<in> (UNIV::'input set)}" 
+  have "{(q, i'). \<not>(q=s\<and>i'=i) \<and> ( q \<in> S) \<and> (\<exists> b. out_star  T' (q @ [i']) = Some ( b))} \<subseteq> {(q,i). q\<in>S\<and> i\<in> (UNIV::'input set)}" 
      by auto
-  then have fin2: "finite {(q, i'). \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star (q @ [i']) T' = Some ( b))}" using finp2  finite_subset  
-    by fast
-   have "{(q, i'). \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star (q @ [i']) T = Some ( b))}\<subseteq> {(q, i').  \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star (q @ [i']) T' = Some ( b))}" using retain 
-    by auto
-  then have lep:"card {(q, i').  \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists>b. out_star (q @ [i']) T = Some ( b))} \<le> card {(q, i').  \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star (q @ [i']) T' = Some ( b))}" 
+   then have fin2: "finite {(q, i'). \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star  T' (q @ [i']) = Some ( b))}"
+     using finp2  finite_subset  by fast
+   have "{(q, i'). \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star T (q @ [i'])  = Some ( b))}\<subseteq> 
+      {(q, i'). \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star  T' (q @ [i']) = Some ( b))}" 
+     using retain by auto
+   then have lep:"card {(q, i').  \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists>b. out_star T (q @ [i'])  = Some ( b))} \<le> 
+    card {(q, i').  \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star T' (q @ [i']) = Some ( b))}" 
     using card_mono fin2  
     by fastforce
-  have " {(q, i').  q=s \<and>i'=i \<and> (\<exists> b. out_star (q @ [i']) T = Some ( b))} = {} " using rule2  
+  have " {(q, i').  q=s \<and>i'=i \<and> (\<exists> b. out_star T (q @ [i']) = Some ( b))} = {} " 
+    using rule2  
     by fastforce
-  then have same: " {(q, i).  q \<in> S \<and> (\<exists> b. out_star (q @ [i]) T = Some ( b))} =  {(q, i').  \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star (q @ [i']) T = Some ( b))} " 
+  then have same: " {(q, i).  q \<in> S \<and> (\<exists> b. out_star T (q @ [i]) = Some ( b))} = 
+   {(q, i').  \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star T (q @ [i']) = Some ( b))} " 
     by auto
-  have nin:"(s,i)\<notin>{(q, i').  \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star (q @ [i']) T' = Some ( b))}" 
+  have nin:"(s,i)\<notin>{(q, i').  \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star T' (q @ [i']) = Some ( b))}" 
     by blast
-  have "{(q, i').  (q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star (q @ [i']) T' = Some ( b))} = {(s,i)}" using a rule2 
+  have "{(q, i').  (q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star T' (q @ [i']) = Some ( b))} = {(s,i)}" using a rule2 
     by fast
-  then have union:"{(q, i').   q \<in> S \<and> (\<exists> b. out_star (q @ [i']) T' = Some ( b))}= {(q, i').  \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star (q @ [i']) T' = Some ( b))}\<union> {(s,i)}" 
+  then have union:"{(q, i').   q \<in> S \<and> (\<exists> b. out_star T' (q @ [i']) = Some ( b))}= 
+    {(q, i').  \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star T' (q @ [i']) = Some ( b))}\<union> {(s,i)}" 
     by force
  
-  then have gt:"card ({(q, i').  \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star (q @ [i']) T' = Some ( b))}\<union> {(s,i)}) =
- card ({(q, i').  \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star (q @ [i']) T' = Some ( b))}) +1"
+  then have gt:"card ({(q, i').  \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star T' (q @ [i']) = Some ( b))}\<union> {(s,i)}) =
+   card ({(q, i').  \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star T' (q @ [i']) = Some ( b))}) +1"
     using fin2 nin 
     by simp
-    have "card {(q, i').   q \<in> S \<and> (\<exists> b. out_star (q @ [i']) T = Some ( b))} \<le> card {(q, i').  \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star (q @ [i']) T' = Some ( b))}" using lep same 
+  have "card {(q, i').   q \<in> S \<and> (\<exists> b. out_star T (q @ [i']) = Some ( b))} \<le> card {(q, i'). 
+   \<not>(q=s\<and>i'=i) \<and> q \<in> S \<and> (\<exists> b. out_star T' (q @ [i']) = Some ( b))}" using lep same 
       by argo
-    then have "card {(q, i').   q \<in> S \<and> (\<exists> b. out_star (q @ [i']) T = Some ( b))} < card {(q, i').   q \<in> S \<and> (\<exists> b. out_star (q @ [i']) T' = Some ( b))}" using gt 
+    then have "card {(q, i').   q \<in> S \<and> (\<exists> b. out_star T (q @ [i']) = Some ( b))} < card {(q, i').   q \<in> S \<and> (\<exists> b. out_star T' (q @ [i']) = Some ( b))}" using gt 
       using union by presburger
     then have "norm_snd (S,F,T)<norm_snd (S,F',T')"  
       by simp
@@ -857,24 +1413,32 @@ have finS':"finite S'" using rule2
     
     have fincross:"finite (S'\<times>F')" using finS' finF' 
       by simp 
-    have "{(q, p). q \<in> S' \<and> p \<in> F' \<and> (\<exists>i x. ( out_star (q @ i) T' = Some ( x)) \<and> (\<exists> y. out_star (p @ i) T' = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))} \<subseteq> (S'\<times>F')" 
+    have "{(q, p). q \<in> S' \<and> p \<in> F' \<and> (\<exists>i x. ( out_star T' (q @ i) = Some ( x)) \<and> 
+    (\<exists> y. out_star T' (p @ i) = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))} \<subseteq> (S'\<times>F')" 
       by blast
-    then have fin3: "finite {(q, p). q \<in> S' \<and> p \<in> F' \<and> (\<exists>i x. ( out_star (q @ i) T' = Some ( x)) \<and> (\<exists> y. out_star (p @ i) T' = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))} " using  fincross  
-      by (simp add: finite_subset)
+    then have fin3: "finite {(q, p). q \<in> S' \<and> p \<in> F' \<and> (\<exists>i x. ( out_star T' (q @ i) =
+     Some ( x)) \<and> (\<exists> y. out_star T' (p @ i) = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))} " 
+      using  fincross   by (simp add: finite_subset)
     obtain l r where lr: "T= Node (l,r)" 
       using obs_tree.exhaust by auto
-    have front:"\<forall> p  x  i2.   out_star (p @ i2) (Node (l,r)) = Some x \<longrightarrow> out_star (p @ i2)  (process_output_query (s @ [i]) out (Node (l,r)))  = Some x "
-      using   rule2(6) lens output_query_retains_some_specific_output[of "s@[i]" out _ l r ] 
+    have front:"\<forall> p  x  i2. out_star (Node (l,r)) (p @ i2) = Some x \<longrightarrow> 
+        out_star (process_output_query (Node (l,r)) (s @ [i]) out ) (p @ i2)    = Some x "
+      using   rule2(6) lens output_query_retains_some_specific_output[of  "s@[i]" out l r   ] 
       by presburger 
-     have one:"{(q, p). q \<in> S' \<and> p \<in> F' \<and> (\<exists>i x. ( out_star (q @ i) T' = Some ( x)) \<and> (\<exists> y. out_star (p @ i) T' = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}\<supseteq>
-{(q, p). q \<in> S' \<and> p \<in> F' \<and> (\<exists>i x. ( out_star (q @ i) T = Some ( x)) \<and> (\<exists> y. out_star (p @ i) T = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))} " using   rule2(6) lens front 
-      using lr by blast
+    have one:"{(q, p). q \<in> S' \<and> p \<in> F' \<and> (\<exists>i x. ( out_star  T' (q @ i) = Some ( x)) \<and> 
+  (\<exists> y. out_star T' (p @ i) = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}\<supseteq>
+  {(q, p). q \<in> S' \<and> p \<in> F' \<and> (\<exists>i x. ( out_star T (q @ i) = Some ( x)) \<and> 
+  (\<exists> y. out_star T (p @ i) = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))} " 
+      using   rule2(6) lens front lr by blast
 
-    have "  {(q, p). q \<in> S \<and> p \<in> F \<and> (\<exists>i x. ( out_star (q @ i) T = Some ( x)) \<and> (\<exists> y. out_star (p @ i) T = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))} \<subseteq> 
-{(q, p). q \<in> S \<and> p \<in> F\<union>{s@[i]} \<and> (\<exists>i x. ( out_star (q @ i) T = Some ( x)) \<and> (\<exists> y. out_star (p @ i) T = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}" 
+    have "  {(q, p). q \<in> S \<and> p \<in> F \<and> (\<exists>i x. ( out_star T (q @ i) = Some ( x)) \<and> 
+    (\<exists> y. out_star T (p @ i) = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))} \<subseteq> 
+    {(q, p). q \<in> S \<and> p \<in> F\<union>{s@[i]} \<and> (\<exists>i x. ( out_star T (q @ i) = Some ( x)) \<and>
+    (\<exists> y. out_star T (p @ i) = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}" 
       by force
-    then have subs3:"{(q, p). q \<in> S' \<and> p \<in> F' \<and> (\<exists>i x. ( out_star (q @ i) T' = Some ( x)) \<and> (\<exists> y. out_star (p @ i) T' = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}\<supseteq> 
- {(q, p). q \<in> S \<and> p \<in> F \<and> (\<exists>i x. ( out_star (q @ i) T = Some ( x)) \<and> (\<exists> y. out_star (p @ i) T = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}" using one rule2 
+    then have subs3:"{(q, p). q \<in> S' \<and> p \<in> F' \<and> (\<exists>i x. ( out_star T' (q @ i) = Some ( x)) \<and> 
+    (\<exists> y. out_star T' (p @ i) = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}\<supseteq> 
+    {(q, p). q \<in> S \<and> p \<in> F \<and> (\<exists>i x. ( out_star T (q @ i) = Some ( x)) \<and> (\<exists> y. out_star T (p @ i) = Some ( y) \<and> drop (length q) x \<noteq>drop (length p) y))}" using one rule2 
       by blast
       
     then have trd:"norm_trd (S,F,T)\<le>norm_trd (S',F',T')" using fin3 card_mono 
@@ -888,10 +1452,10 @@ next
   have lens:"length (f@w) = length out" 
     using output_query_length rule3(7) 
     by blast  
-  have  retain:"\<forall> is. out_star is T\<noteq>None \<longrightarrow> out_star is T' \<noteq> None" using rule3 lens  
+  have  retain:"\<forall> is. out_star T is\<noteq>None \<longrightarrow> out_star T' is \<noteq> None" using rule3 lens  
     using output_query_retains_some_output 
     by blast
-    then have retain_specific:"\<forall> is x. out_star is T=Some x \<longrightarrow> out_star is T' = Some x " using output_query_retains_some_specific_output rule3 lens 
+    then have retain_specific:"\<forall> is x. out_star T is=Some x \<longrightarrow> out_star T' is = Some x " using output_query_retains_some_specific_output rule3 lens 
       by (smt (verit) not_none_not_both_apart out_star.elims)
    have finp: "finite  ({q. q\<in>S} \<times> {i. i\<in>(UNIV::'input set)})"
      using rule3 
@@ -900,13 +1464,18 @@ next
     by fast
   then have finp2:"finite {(q,(i)). q\<in>S\<and>i\<in>(UNIV::'input set)} " using finp 
     by argo
-   have "{(q, i). q \<in> S' \<and> (\<exists>y. out_star (q @ [i]) T' = Some y)} \<subseteq> {(q,i). q\<in>S\<and> i\<in> (UNIV::'input set)}"  using rule3
+   have "{(q, i). q \<in> S' \<and> (\<exists>y. out_star T' (q @ [i]) = Some y)} \<subseteq> {(q,i). q\<in>S\<and> i\<in> (UNIV::'input set)}"  using rule3
      by auto
-   then have fin2:"finite {(q, i). q \<in> S' \<and> (\<exists>y. out_star (q @ [i]) T' = Some y)}" using finp2 finite_subset 
+   then have fin2:"finite {(q, i). q \<in> S' \<and> (\<exists>y. out_star T' (q @ [i])  = Some y)}"
+     using finp2 finite_subset 
      by fast
-   have " {(q, i). q \<in> S \<and> (\<exists>y. out_star (q @ [i]) T = Some y)}  \<subseteq>{(q, i). q \<in> S' \<and> (\<exists>y. out_star (q @ [i]) T' = Some y)}" using retain rule3
+   have " {(q, i). q \<in> S \<and> (\<exists>y. out_star T (q @ [i]) = Some y)}  \<subseteq>
+    {(q, i). q \<in> S' \<and> (\<exists>y. out_star T' (q @ [i]) = Some y)}" 
+     using retain rule3
      by fast
-   then have "card {(q, i). q \<in> S \<and> (\<exists>y. out_star (q @ [i]) T = Some y)}  \<le> card {(q, i). q \<in> S' \<and> (\<exists>y. out_star (q @ [i]) T' = Some y)}" using fin2 card_mono 
+   then have "card {(q, i). q \<in> S \<and> (\<exists>y. out_star T (q @ [i]) = Some y)}  \<le> 
+    card {(q, i). q \<in> S' \<and> (\<exists>y. out_star T' (q @ [i]) = Some y)}" 
+     using fin2 card_mono 
      by auto
    then have snd:"norm_snd (S,F,T) \<le> norm_snd (S',F',T')" by auto
 
@@ -927,7 +1496,7 @@ next
     then have fin3_subs: "finite  {(q, p). q \<in> S' \<and> p \<in> F' \<and>\<not>((q=s1\<or>q=s2) \<and>p=f) \<and>  apart_text T' q p}" using fin3 finite_subset 
       by simp
 
-    obtain z where z: "out_star (f@w) T' = Some z " using rule3  lens 
+    obtain z where z: "out_star T' (f@w) = Some z " using rule3  lens 
       by (metis not_None_eq obs_tree.exhaust process_op_query_not_none_output surj_pair)
     have "apart_witness w T' s1 s2" using retain_specific rule3 
       by auto
@@ -972,14 +1541,119 @@ next
   
    show ?case using fst snd trd 
      by fastforce
- next
-  case (rule4_end t f m list)
-  then show ?case sorry
+
 next
-  case (rule4_step t f m list out)
-  then show ?case sorry
+  case (rule4 s fs f q_0 inp Q outs outf)
+  then have fst:"norm_fst (S,F,T) = norm_fst (S',F',T')" 
+    
+    by simp
+  have lens:"length (s@inp) = length outs" 
+    using output_query_length rule4 
+    by blast  
+  have lenf:"length (fs@inp) = length outf" 
+    using output_query_length rule4 
+    by blast
+  have  retain:"\<forall> is. out_star T is\<noteq>None \<longrightarrow> out_star T' is \<noteq> None" using rule4 lens lenf 
+    using output_query_retains_some_output 
+    by blast
+  then have retain_specific:"\<forall> is x. out_star T is=Some x \<longrightarrow> out_star T' is = Some x " 
+    using output_query_retains_some_specific_output rule4 lens  lenf 
+      by (smt (verit, ccfv_SIG) out_star.elims out_star.simps(1))
+   have finp: "finite  ({q. q\<in>S} \<times> {i. i\<in>(UNIV::'input set)})"
+     using rule4
+     by simp
+  have " {(q,(i)). q\<in>S\<and>i\<in>(UNIV::'input set)} = {q. q\<in>S} \<times> {i. i\<in>(UNIV::'input set)} " 
+    by fast
+  then have finp2:"finite {(q,(i)). q\<in>S\<and>i\<in>(UNIV::'input set)} " using finp 
+    by argo
+  have "{(q, i). q \<in> S' \<and> (\<exists>y. out_star T' (q @ [i]) = Some y)} \<subseteq> {(q,i). q\<in>S\<and> i\<in> (UNIV::'input set)}" 
+    using rule4
+     by auto
+   then have fin2:"finite {(q, i). q \<in> S' \<and> (\<exists>y. out_star T' (q @ [i])  = Some y)}"
+     using finp2 finite_subset 
+     by fast
+   have " {(q, i). q \<in> S \<and> (\<exists>y. out_star T (q @ [i]) = Some y)}  \<subseteq>
+    {(q, i). q \<in> S' \<and> (\<exists>y. out_star T' (q @ [i]) = Some y)}" 
+     using retain rule4
+     by fast
+   then have "card {(q, i). q \<in> S \<and> (\<exists>y. out_star T (q @ [i]) = Some y)}  \<le> 
+    card {(q, i). q \<in> S' \<and> (\<exists>y. out_star T' (q @ [i]) = Some y)}" 
+     using fin2 card_mono 
+     by auto
+   then have snd:"norm_snd (S,F,T) \<le> norm_snd (S',F',T')" by auto
+
+
+   have invar:"invar  (q_0, Q, f)  (S',F',T')" using rule4 algo_step_keeps_invar algo_step.rule4
+     by meson
+
+   have "\<exists> x. out_star T' (s@inp) = Some x"       
+     by (metis lenf lens not_Some_eq obs_tree.exhaust old.prod.exhaust 
+output_query_retains_some_output process_op_query_not_none_output rule4.hyps(11))
+   then obtain new_outs where new_outs:" out_star T' (s@inp) = Some new_outs" 
+     by fast
+   have "\<exists> y. out_star T' (fs@inp) = Some y" using process_op_query_not_none_output 
+     by (metis lenf not_Some_eq obs_tree.exhaust old.prod.exhaust rule4.hyps(11))
+   then obtain new_outf where new_outf:" out_star T' (fs@inp) = Some new_outf" 
+     by fast
+
+   have query_s:"new_outs= (output_query  (q_0, Q, f)  (s @ inp))" using invar  new_outs  
+     by auto
+ have query_fs:"new_outf= (output_query  (q_0, Q, f)  (fs @ inp))" using invar  new_outf  
+     by auto
+
+
+   have "drop (length s) (output_query (q_0, Q, f) (s @ inp))\<noteq> 
+  drop (length fs)  (output_query (q_0, Q, f) (fs @ inp))" using rule4 
+     by (metis output_query.simps)
+
+   then have "drop (length s)new_outs \<noteq>drop (length fs) new_outf" using  rule4 query_s query_fs 
+     by argo  
+   then have apart_s_fs:"apart_text T' s fs" using new_outs new_outf 
+     by auto
+
+      have fincross:"finite (S'\<times>F')" using rule4 
+      by simp 
+    have "{(q, p). q \<in> S' \<and> p \<in> F' \<and>  apart_text T' q p} \<subseteq> (S'\<times>F')" 
+      by blast
+    then have fin3:"finite {(q, p). q \<in> S' \<and> p \<in> F' \<and>  apart_text T' q p} " using fincross finite_subset 
+      by fast
+     have one_elem:"{(q, p). q \<in> S' \<and> p \<in> F'\<and>(q=s\<and>p=fs) \<and> apart_text T' q p}={(s,fs)}" 
+     using apart_s_fs rule4 
+     by fast
+   have union:"{(q, p). q \<in> S' \<and> p \<in> F' \<and> (apart_text T' q p) } =
+          {(q, p). q \<in> S' \<and> p \<in> F'\<and>\<not>(q=s\<and>p=fs) \<and> apart_text T' q p} \<union>
+      {(q, p). q \<in> S' \<and> p \<in> F'\<and>(q=s\<and>p=fs) \<and> apart_text T' q p} " 
+     by fast
+   then have finite_subs:"finite  {(q, p). q \<in> S' \<and> p \<in> F'\<and>\<not>(q=s\<and>p=fs) \<and> apart_text T' q p} \<and>
+ finite  {(q, p). q \<in> S' \<and> p \<in> F'\<and>(q=s\<and>p=fs) \<and> apart_text T' q p} " using fin3 
+     by simp
+     have "{(q, p). q \<in> S' \<and> p \<in> F' \<and>\<not>((q=s) \<and>p=fs) \<and>  apart_text T' q p} \<inter>{(s,fs)} ={}" 
+      by blast
+   then have card_splitup:"card {(q, p). q \<in> S' \<and> p \<in> F' \<and> (apart_text T' q p) } =
+         card {(q, p). q \<in> S' \<and> p \<in> F'\<and>\<not>(q=s\<and>p=fs) \<and> apart_text T' q p} +
+      card {(s,fs)} " 
+     using  fin3  union one_elem  finite_subs  card_Un_disjoint[of "{(q, p). q \<in> S' \<and> p \<in> F'\<and>\<not>(q=s\<and>p=fs) \<and> apart_text T' q p}" "{(s,fs)}"] 
+     by argo   
+
+   have removed:"{(q, p). q \<in> S \<and> p \<in> F \<and> (apart_text T q p) } =
+        {(q, p). q \<in> S \<and> p \<in> F \<and>\<not>(q=s\<and>p=fs)\<and> (apart_text T q p) }"  using rule4 
+     by fast
+   have "{(q, p). q \<in> S \<and> p \<in> F \<and>\<not>(q=s\<and>p=fs)\<and> (apart_text T q p) }\<subseteq>
+{(q, p). q \<in> S' \<and> p \<in> F'\<and>\<not>(q=s\<and>p=fs) \<and> apart_text T' q p}" using retain_specific rule4 
+     by (smt (verit, ccfv_SIG) Pair_inject apart_text.simps case_prodE case_prodI2 mem_Collect_eq subsetI)
+   then have "card  {(q, p). q \<in> S \<and> p \<in> F \<and> (apart_text T q p) }\<le>card {(q, p). q \<in> S' \<and> p \<in> F'\<and>\<not>(q=s\<and>p=fs) \<and> apart_text T' q p} "
+     using fin3 card_mono removed  finite_subs by force
+   then have "card  {(q, p). q \<in> S \<and> p \<in> F \<and> (apart_text T q p) }<card {(q, p). q \<in> S' \<and> p \<in> F'\<and>\<not>(q=s\<and>p=fs) \<and> apart_text T' q p} +
+card {(s,fs)} " 
+     by simp
+   then  have trd:"norm_trd (S,F,T) < norm_trd (S',F',T')"  using card_splitup 
+     by simp
+  
+  
+   show ?case using fst snd trd  
+     by simp
 qed
-qed
+
 
 
   
