@@ -72,6 +72,17 @@ next
     by (metis (no_types, lifting) append_Cons case_prod_conv old.prod.exhaust trans_star_state.simps(2))  
 qed
 
+
+
+lemma trans_star_length:"trans_star t q_0 iss  =(q,os) \<Longrightarrow> length iss=length os"
+proof (induction iss arbitrary:os q q_0)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a iss)
+  then show ?case by (auto split:prod.splits option.splits)  
+qed
+
 lemma trans_star_two:
   assumes "trans_star t q_0 acc = (st,op1) " "trans_star t (st) is  = (st2,op2)"
   shows "(trans_star t q_0 (acc@is)) =(st2,op1@op2)"
@@ -99,6 +110,38 @@ next
 qed
 
 
+lemma trans_star_two_nested:
+ "  trans_star t ( fst (trans_star t q_0 acc)) is  = 
+    (fst (trans_star t q_0  (acc@is)),drop (length acc) (snd (trans_star t q_0 (acc@is))))" 
+proof -
+
+obtain st op1 where op1:"(trans_star t q_0 acc) = (st,op1)" 
+    by fastforce
+  obtain st2 op2 where op2:"(trans_star t st is) = (st2,op2)" 
+    by fastforce
+have "trans_star t (fst (trans_star t q_0 acc)) is = trans_star t st is" using op1 op2 
+    by simp 
+ show ?thesis proof (standard,goal_cases)
+  case 1
+  
+  have "fst (trans_star t q_0 (acc @ is)) = fst (trans_star t st is)" using trans_star_two op1 op2 
+    by fastforce
+   
+  then show ?case  using  op1 op2 
+    by auto
+next
+  case 2
+  have a:"snd (trans_star t q_0 (acc@is)) = (op1@op2)" using op1 op2 trans_star_two 
+    by fastforce
+  have "length op1= length acc " using op1 trans_star_length 
+    by metis
+  then have "drop (length acc) (op1@op2) =op2" 
+    by simp
+  then show ?case using a op1 op2 
+    by simp
+qed
+qed
+  
   
 
 

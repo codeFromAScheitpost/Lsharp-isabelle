@@ -1,4 +1,4 @@
-theory mealie
+theory mealy
   imports Main
 begin
 
