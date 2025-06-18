@@ -1,0 +1,11 @@
+\#observation_treeClean.thy\#
+\#mealyClean.thy\#
+/.idea
+*.iml
+*.java
+mealyClean.thy
+observation_treeClean.thy
+/out
+algorythmClean.thy
+mealyClean.thy~
+observation_treeClean.thy~
