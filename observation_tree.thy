@@ -27,7 +27,7 @@ fun out_star :: "('input,'output) obs_tree \<Rightarrow> ('input :: finite) list
 
 definition func_sim :: "('state,'input,'output) mealy \<Rightarrow> ('input,'output) obs_tree \<Rightarrow> (('input :: finite) list \<Rightarrow> 'state) \<Rightarrow> bool" where
 "func_sim m T f = (case m of
-    (q_0,S,t) \<Rightarrow> ((f [] = q_0) \<and> (\<forall> acc is ops. out_star T (acc @ is) = Some ops \<longrightarrow>
+    (q_0,t) \<Rightarrow> ((f [] = q_0) \<and> (\<forall> acc is ops. out_star T (acc @ is) = Some ops \<longrightarrow>
       trans_star t (f acc) is = (f (acc @ is),(drop (length acc) ops)))))"
 
 
@@ -50,7 +50,7 @@ fun apart_witness :: "('input :: finite) list \<Rightarrow> ('input,'output) obs
 
 
 fun output_query :: "('state,('input :: finite),'output) mealy \<Rightarrow> 'input list \<Rightarrow> 'output list" where
-"output_query (q_0,Q,t) is = trans_star_output t q_0 is"
+"output_query (q_0,t) is = trans_star_output t q_0 is"
 
 
 fun process_output_query :: "('input,'output) obs_tree \<Rightarrow> ('input :: finite) list \<Rightarrow> 'output list \<Rightarrow> ('input,'output) obs_tree" where
@@ -115,9 +115,9 @@ rule4: "\<lbrakk>\<forall> i. \<not> isolated T S (s @ [i]);
       \<not> apart_text T s fs;
       drop (length s) (trans_star_output f q_0 (s @ inp)) \<noteq>
       drop (length fs) (trans_star_output f q_0 (fs @ inp));
-      output_query (q_0,Q,f) (s @ inp) = outs;
-      output_query (q_0,Q,f) (fs @ inp) = outf\<rbrakk> \<Longrightarrow>
-    algo_step (q_0,Q,f) (S,F,T) (S,F,process_output_query (process_output_query T (s @ inp) outs) (fs @ inp) outf)"
+      output_query (q_0,f) (s @ inp) = outs;
+      output_query (q_0,f) (fs @ inp) = outf\<rbrakk> \<Longrightarrow>
+    algo_step (q_0,f) (S,F,T) (S,F,process_output_query (process_output_query T (s @ inp) outs) (fs @ inp) outf)"
 
 
 fun norm_fst :: "(('input :: finite),'output) state \<Rightarrow> nat" where
@@ -134,7 +134,12 @@ fun norm_set :: "(('input :: finite),'output) state \<Rightarrow> nat" where
 "norm_set st = norm_fst st + norm_snd st + norm_trd st"
 
 locale Mealy =
-  fixes M :: "('state :: finite,'input :: finite,'output) mealy"
+  fixes m :: "('state :: finite,'input :: finite,'output) mealy" and
+    I :: "'input set" and
+    Q :: "'state set"
+  assumes mdef: "m = (q_0,t)" and
+    univI: "I = UNIV" and
+    univQ: "Q = UNIV"
 begin
 
 
@@ -143,7 +148,7 @@ section "apart"
 
 lemma apart_sim:
   assumes "apart_text T p q" and
-    "func_sim (q_0,Q,t) T f"
+    "func_sim (q_0,t) T f"
   shows "f q \<noteq> f p"
 proof
   assume as: "f q = f p"
@@ -215,11 +220,10 @@ lemma output_query_length:
   assumes "output_query m iss = os"
   shows "length iss = length os"
 proof -
-  obtain q_0 Q t where
-    m: "m = (q_0,Q,t)"
-    using prod_cases3
-    by blast
-  then have "output_query (q_0,Q,t) iss = os \<Longrightarrow> length iss = length os"
+  obtain q_0 t where
+    m: "m = (q_0,t)"
+    by fastforce
+  then have "output_query (q_0,t) iss = os \<Longrightarrow> length iss = length os"
     using trans_star_length
     apply (simp split: prod.splits option.splits)
     using trans_star_output_state
@@ -1338,10 +1342,9 @@ lemma output_query_keeps_invar:
     "\<forall> k y. out_star T k = Some y \<longrightarrow> output_query m k = y"
   shows "(out_star (process_output_query T j out) i \<noteq> None \<longrightarrow> out_star (process_output_query T j out) i = Some (output_query m i))"
 proof -
-  obtain t S q_0 where
-    "m = (q_0,S,t)"
-    using prod_cases3
-    by blast
+  obtain t q_0 where
+    "m = (q_0,t)"
+    by fastforce
   then have "\<forall> is. output_query m is = trans_star_output t q_0 is"
     by simp
   then show ?thesis
@@ -1371,44 +1374,45 @@ section "norm"
 lemma norm_max:
   assumes "invar m (S,F,T)" and
     "finite S"
-  shows "norm_set ((S :: 'input list set),F,T) \<le>
-      (card S * (card S + 1)) div 2 + (card S * card (UNIV :: 'input set)) + (card S * (card S * card (UNIV :: 'input set)))"
+  shows "norm_set (S,F,T) \<le>
+      (card S * (card S + 1)) div 2 + (card S * card I) + (card S * (card S * card I))"
 proof -
   have fst: "norm_fst (S,F,T) = (card S * (card S + 1) div 2)"
     by simp
-  have fin_snd: "finite (S \<times> (UNIV :: 'input set))"
+  have fin_snd: "finite (S \<times> I)"
     using assms
     by auto
-  have "{(q,i). q \<in> S \<and> out_star T (q @ [i]) \<noteq> None} \<subseteq> (S \<times> (UNIV :: 'input set))"
+  have "{(q,i). q \<in> S \<and> out_star T (q @ [i]) \<noteq> None} \<subseteq> (S \<times> I)"
+    using univI
     by blast
-  then have "norm_snd (S,F,T) \<le> (card (S \<times> (UNIV :: 'input set)))"
+  then have "norm_snd (S,F,T) \<le> (card (S \<times> I))"
     using fin_snd card_mono
     by auto
-  then have snd: "norm_snd (S,F,T) \<le> card S * card (UNIV :: 'input set)"
+  then have snd: "norm_snd (S,F,T) \<le> card S * card I"
     by (simp add: card_cartesian_product)
-  have fin_trd: "finite ((\<lambda> (s,i). s @ [i]) ` (S \<times> (UNIV :: 'input set)))"
-    using fin_snd
+  have fin_trd: "finite ((\<lambda> (s,i). s @ [i]) ` (S \<times> I))"
+    using fin_snd univI
     by blast
   have "(\<forall> f \<in> F. \<exists> s \<in> S. \<exists> i. f = s @ [i])"
     using assms
     by auto
   then have pre: "F \<subseteq> {s @ [i] |
-      s i. s \<in> S \<and> i \<in> (UNIV :: 'input set)}"
-    using assms
+      s i. s \<in> S \<and> i \<in> I}"
+    using assms univI
     by blast
   have f_image: "{s @ [i] |
-      s i. s \<in> S \<and> i \<in> (UNIV :: 'input set)} = (\<lambda> (s,i). s @ [i]) ` (S \<times> (UNIV :: 'input set))"
+      s i. s \<in> S \<and> i \<in> I} = (\<lambda> (s,i). s @ [i]) ` (S \<times> I)"
     by fast
-  then have card_pre: "card F \<le> card ((\<lambda> (s,i). s @ [i]) ` (S \<times> (UNIV :: 'input set)))"
+  then have card_pre: "card F \<le> card ((\<lambda> (s,i). s @ [i]) ` (S \<times> I))"
     using fin_trd pre card_mono
     by fastforce
-  have "inj_on (\<lambda> (s,i). s @ [i]) (S \<times> (UNIV :: 'input set))"
+  have "inj_on (\<lambda> (s,i). s @ [i]) (S \<times> I)"
     unfolding inj_on_def
     by (auto split: prod.splits)
-  then have "card ((\<lambda> (s,i). s @ [i]) ` (S \<times> (UNIV :: 'input set))) = card (S \<times> (UNIV :: 'input set))"
+  then have "card ((\<lambda> (s,i). s @ [i]) ` (S \<times> I)) = card (S \<times> I)"
     using card_image
     by blast
-  then have card_f_less_cross: "card F \<le> card (S \<times> (UNIV :: 'input set))"
+  then have card_f_less_cross: "card F \<le> card (S \<times> I)"
     using card_pre
     by argo
   have subs_trd: "{(q,p). q \<in> S \<and> p \<in> F \<and> apart_text T q p} \<subseteq> (S \<times> F)"
@@ -1419,7 +1423,7 @@ proof -
   then have "norm_trd (S,F,T) \<le> card (S \<times> F)"
     using subs_trd card_mono
     by fastforce
-  then have trd: "norm_trd (S,F,T) \<le> (card S * (card S * card (UNIV :: 'input set)))"
+  then have trd: "norm_trd (S,F,T) \<le> (card S * (card S * card I))"
     by (metis (full_types) card_cartesian_product card_f_less_cross dual_order.trans mult_le_mono2)
   then show ?thesis
     using fst snd trd
@@ -1431,10 +1435,9 @@ lemma func_sim_of_output_query:
   assumes "\<forall> inp x. out_star T inp = Some x \<longrightarrow> output_query m inp = x"
   shows "\<exists> f. func_sim m T f"
 proof -
-  obtain q_0 S transmealy where
-    m: "m = (q_0,S,transmealy)"
-    using prod_cases3
-    by blast
+  obtain q_0 transmealy where
+    m: "m = (q_0,transmealy)"
+    by fastforce
   have "\<exists> f. \<forall> i. f i = fst (trans_star transmealy q_0 i)"
     by auto
   then obtain f where
@@ -1484,7 +1487,7 @@ qed
 
 
 lemma max_size_S_aux:
-  assumes "func_sim (m :: (('state,'input,'output) mealy)) T f" and
+  assumes "func_sim m T f" and
     "sapart (S,F,T)" and
     "finite S"
   shows "card S \<le> card (UNIV :: 'state set)"
@@ -1548,10 +1551,12 @@ using assms proof (induction rule: algo_step.induct)
   then show ?case
     by fastforce
 next
-  case (rule2 s S T i m out F)
+  case (rule2 s S T i mnew out F)
+  have mnew: "m = mnew"
+    by (metis mdef output_query.elims)
   have lens: "length (s @ [i]) = length out"
     using rule2 output_query_length
-    by blast
+    by (metis case_prodE case_prodI2 mdef)
   have "\<forall> e. (e \<in> S \<or> e \<in> F \<longrightarrow> out_star T e \<noteq> None)"
     using rule2
     by auto
@@ -1562,55 +1567,60 @@ next
     using lens rule2 proc_output_query_retains_sapart invar.simps
     by blast
   have "\<forall> k y. out_star T k = Some y \<longrightarrow> output_query m k = y"
-    using rule2
+    using rule2 mnew
     by force
   then have c: "(\<forall> j. out_star (process_output_query T (s @ [i]) out) j \<noteq> None \<longrightarrow>
       out_star (process_output_query T (s @ [i]) out) j = Some (output_query m j))"
-    using rule2 output_query_keeps_invar[of T "s @ [i]" m"s @ [i]" out]
+    using rule2 output_query_keeps_invar[of T "s @ [i]" "s @ [i]" out] mnew
     by (smt (verit) invar.simps lens out_star.elims output_query_keeps_invar output_query_retains_some_specific_output)
   show ?case
-    using rule2 a b c
+    using rule2 a b c mnew
     by auto
   text \<open>this is very slow, manual proving of the s@[i] rule should improve performance\<close>
 next
-  case (rule3 s1 S s2 f F T w m out)
+  case (rule3 s1 S s2 f F T w mnew out)
+  have mnew: "m = mnew"
+    by (metis mdef output_query.elims)
   have lens: "length (f @ w) = length out"
-    using rule3 output_query_length
+    using rule3 output_query_length mnew
     by blast
   have b: "sapart (S,F,process_output_query T (f @ w) out)"
     using lens rule3 proc_output_query_retains_sapart invar.simps
     by blast
   have "\<forall> k y. out_star T k = Some y \<longrightarrow> output_query m k = y"
-    using rule3
+    using rule3 mnew
     by fastforce
   then have c: "(\<forall> j. out_star (process_output_query T (f @ w) out) j \<noteq> None \<longrightarrow>
       out_star (process_output_query T (f @ w) out) j = Some (output_query m j))"
-    using rule3 output_query_keeps_invar
+    using rule3 output_query_keeps_invar mnew
     by (smt (verit,del_insts) invar.simps lens out_star.elims output_query_retains_some_specific_output)
   then show ?case
-    using rule3 b c
+    using rule3 b c mnew
     by (smt (verit,del_insts) invar.simps lens output_query_retains_some_output)
 next
-  case (rule4 T S s fs F f q_0 inp Q outs outf)
+  case (rule4 T S s fs F f q_0 inp outs outf)
+  have mdef2: "m = (q_0,f)"
+    by (simp add: mdef)
   have lens: "length (s @ inp) = length outs"
-    using rule4 output_query_length
+    using rule4 output_query_length mdef2
     by blast
   have lenf: "length (fs @ inp) = length outf"
-    using rule4 output_query_length
+    using rule4 output_query_length mdef2
     by blast
   have b: "sapart (S,F,(process_output_query (process_output_query T (s @ inp) outs) (fs @ inp) outf))"
     using lens lenf rule4 proc_output_query_retains_sapart invar.simps
     by metis
-  have "\<forall> k y. out_star T k = Some y \<longrightarrow> output_query (q_0,Q,f) k = y"
+  have "\<forall> k y. out_star T k = Some y \<longrightarrow> output_query (q_0,f) k = y"
     using rule4
     by auto
   then have "(\<forall> j. out_star (process_output_query T (s @ inp) outs) j \<noteq> None \<longrightarrow>
-      out_star (process_output_query T (s @ inp) outs) j = Some (output_query (q_0,Q,f) j))"
-    using rule4 output_query_keeps_invar
+      out_star (process_output_query T (s @ inp) outs) j = Some (output_query (q_0,f) j))"
+    using rule4 output_query_keeps_invar mdef2
     by (smt (verit,del_insts) invar.simps lens out_star.elims output_query_retains_some_specific_output)
   then have c: "(\<forall> j. out_star (process_output_query (process_output_query T (s @ inp) outs) (fs @ inp) outf) j \<noteq> None \<longrightarrow>
-      out_star (process_output_query (process_output_query T (s @ inp) outs) (fs @ inp) outf) j = Some (output_query (q_0,Q,f) j))"
-    using rule4 output_query_keeps_invar[of "(process_output_query T (s @ inp) outs)" _"(q_0,Q,f)""fs @ inp" outf]
+      out_star (process_output_query (process_output_query T (s @ inp) outs) (fs @ inp) outf) j = Some (output_query (q_0,f) j))"
+    using rule4 output_query_keeps_invar[of "process_output_query T (s @ inp) outs" _"fs @ inp" "outf"]
+    using mdef2
     by (smt (verit) lenf option.discI option.inject out_star.elims output_query_retains_some_specific_output process_output_query.simps(1))
   then show ?case
     using rule4 c b
@@ -1622,12 +1632,12 @@ theorem algo_step_increases_norm:
   assumes "algo_step m ((S :: 'input list set),F,T) (S',F',T')" and
     "invar m (S,F,T)"
   shows "norm_set (S,F,T) < norm_set (S',F',T')"
-using assms proof (induction m "(S,F,T)""(S',F',T')" rule: algo_step.induct)
+using assms proof (induction m "(S,F,T)" "(S',F',T')" rule: algo_step.induct)
   case (rule1 f m)
   have finS: "finite S"
     using rule1(6)
     by simp
-  have finI: "finite (UNIV :: 'input set)"
+  have finI: "finite I"
     by fastforce
   have finF: "finite F"
     using rule1(6)
@@ -1644,17 +1654,18 @@ using assms proof (induction m "(S,F,T)""(S',F',T')" rule: algo_step.induct)
     using rule1
     by fast
 
-  have finp: "finite ({q. q \<in> S \<union> {f}} \<times> {i. i \<in> (UNIV :: 'input set)})"
+  have finp: "finite ({q. q \<in> S \<union> {f}} \<times> {i. i \<in> I})"
     using finS finI
     by simp
-  have "{(q,i). q \<in> S \<union> {f} \<and> i \<in> (UNIV :: 'input set)} = {q. q \<in> S \<union> {f}} \<times> {i. i \<in> (UNIV :: 'input set)}"
+  have "{(q,i). q \<in> S \<union> {f} \<and> i \<in> I} = {q. q \<in> S \<union> {f}} \<times> {i. i \<in> I}"
     using finS finI
     by fast
-  then have finp2: "finite {(q,i). q \<in> S \<union> {f} \<and> i \<in> (UNIV :: 'input set)}"
+  then have finp2: "finite {(q,i). q \<in> S \<union> {f} \<and> i \<in> I}"
     using finp
     by argo
   have "{(q,i). (q = f \<or> q \<in> S) \<and> (\<exists> a b. out_star T (q @ [i]) = Some b)} \<subseteq>
-      {(q,i). q \<in> S \<union> {f} \<and> i \<in> (UNIV :: 'input set)}"
+      {(q,i). q \<in> S \<union> {f} \<and> i \<in> I}"
+    using univI
     by auto
   then have fin2: "finite {(q,i). (q = f \<or> q \<in> S) \<and> (\<exists> a b. out_star T (q @ [i]) = Some b)}"
     using finp2 finite_subset
@@ -1722,14 +1733,16 @@ using assms proof (induction m "(S,F,T)""(S',F',T')" rule: algo_step.induct)
     using fst snd trd
     by simp
 next
-  case (rule2 s i m out)
+  case (rule2 s i mnew out)
+  have mnew: "m = mnew"
+    by (metis mdef old.prod.exhaust)
   have finS: "finite S"
     using rule2
     by simp
   have finS': "finite S'"
     using rule2
     by simp
-  have finI: "finite (UNIV :: 'input set)"
+  have finI: "finite I"
     by fastforce
   have finF: "finite F"
     using rule2
@@ -1742,7 +1755,7 @@ next
     by fastforce
 
   have lens: "length (s @ [i]) = length out"
-    using output_query_length rule2.hyps(3)
+    using output_query_length rule2.hyps(3) mnew
     by blast
   then have a: "out_star T' (s @ [i]) \<noteq> None"
     using process_op_query_not_none_output rule2
@@ -1752,17 +1765,18 @@ next
     by blast
   have "{q \<in> S. \<forall> i. \<exists> a b. q \<noteq> s \<and> otree_star T' (q @ [i]) = Some (a,b)} \<subseteq> S"
     by force
-  have finp: "finite ({q. q \<in> S} \<times> {i. i \<in> (UNIV :: 'input set)})"
+  have finp: "finite ({q. q \<in> S} \<times> {i. i \<in> I})"
     using finS finI
     by simp
-  have "{(q,i). q \<in> S \<and> i \<in> (UNIV :: 'input set)} = {q. q \<in> S} \<times> {i. i \<in> (UNIV :: 'input set)}"
+  have "{(q,i). q \<in> S \<and> i \<in> I} = {q. q \<in> S} \<times> {i. i \<in> I}"
     using finS finI
     by fast
-  then have finp2: "finite {(q,i). q \<in> S \<and> i \<in> (UNIV :: 'input set)}"
+  then have finp2: "finite {(q,i). q \<in> S \<and> i \<in> I}"
     using finp
     by argo
   have "{(q,i'). \<not> (q = s \<and> i' = i) \<and> (q \<in> S) \<and> (\<exists> b. out_star T' (q @ [i']) = Some b)} \<subseteq>
-      {(q,i). q \<in> S \<and> i \<in> (UNIV :: 'input set)}"
+      {(q,i). q \<in> S \<and> i \<in> I}"
+    using univI
     by auto
   then have fin2: "finite {(q,i'). \<not> (q = s \<and> i' = i) \<and> q \<in> S \<and> (\<exists> b. out_star T' (q @ [i']) = Some b)}"
     using finp2 finite_subset
@@ -1850,13 +1864,15 @@ next
     using fst snd trd
     by simp
 next
-  case (rule3 s1 s2 f w m out)
+  case (rule3 s1 s2 f w mnew out)
+  have mnew: "m = mnew"
+    by (metis mdef old.prod.exhaust)
   have fst: "norm_fst (S,F,T) = norm_fst (S',F',T')"
     using rule3
     by fastforce
 
   have lens: "length (f @ w) = length out"
-    using output_query_length rule3(7)
+    using output_query_length rule3(7) mnew
     by blast
   have retain: "\<forall> is. out_star T is \<noteq> None \<longrightarrow> out_star T' is \<noteq> None"
     using rule3 lens output_query_retains_some_output
@@ -1864,16 +1880,16 @@ next
   then have retain_specific: "\<forall> is x. out_star T is = Some x \<longrightarrow> out_star T' is = Some x"
     using output_query_retains_some_specific_output rule3 lens
     by (smt (verit) not_none_not_both_apart out_star.elims)
-  have finp: "finite ({q. q \<in> S} \<times> {i. i \<in> (UNIV :: 'input set)})"
+  have finp: "finite ({q. q \<in> S} \<times> {i. i \<in> I})"
     using rule3
     by simp
-  have "{(q,i). q \<in> S \<and> i \<in> (UNIV :: 'input set)} = {q. q \<in> S} \<times> {i. i \<in> (UNIV :: 'input set)}"
+  have "{(q,i). q \<in> S \<and> i \<in> I} = {q. q \<in> S} \<times> {i. i \<in> I}"
     by fast
-  then have finp2: "finite {(q,i). q \<in> S \<and> i \<in> (UNIV :: 'input set)}"
+  then have finp2: "finite {(q,i). q \<in> S \<and> i \<in> I}"
     using finp
     by argo
-  have "{(q,i). q \<in> S' \<and> (\<exists> y. out_star T' (q @ [i]) = Some y)} \<subseteq> {(q,i). q \<in> S \<and> i \<in> (UNIV :: 'input set)}"
-    using rule3
+  have "{(q,i). q \<in> S' \<and> (\<exists> y. out_star T' (q @ [i]) = Some y)} \<subseteq> {(q,i). q \<in> S \<and> i \<in> I}"
+    using rule3 mnew univI
     by auto
   then have fin2: "finite {(q,i). q \<in> S' \<and> (\<exists> y. out_star T' (q @ [i]) = Some y)}"
     using finp2 finite_subset
@@ -1973,15 +1989,18 @@ next
     by fastforce
 
 next
-  case (rule4 s fs f q_0 inp Q outs outf)
+  case (rule4 s fs f q_0 inp outs outf)
+  have mnew: "m = (q_0,f)"
+    by (simp add: mdef)
   then have fst: "norm_fst (S,F,T) = norm_fst (S',F',T')"
-    by simp
+    using rule4
+    by auto
 
   have lens: "length (s @ inp) = length outs"
-    using output_query_length rule4
+    using output_query_length rule4 mnew
     by blast
   have lenf: "length (fs @ inp) = length outf"
-    using output_query_length rule4
+    using output_query_length rule4 mnew
     by blast
   have retain: "\<forall> is. out_star T is \<noteq> None \<longrightarrow> out_star T' is \<noteq> None"
     using rule4 lens lenf output_query_retains_some_output
@@ -1989,16 +2008,16 @@ next
   then have retain_specific: "\<forall> is x. out_star T is = Some x \<longrightarrow> out_star T' is = Some x"
     using output_query_retains_some_specific_output rule4 lens lenf
     by (smt (verit,ccfv_SIG) out_star.elims out_star.simps(1))
-  have finp: "finite ({q. q \<in> S} \<times> {i. i \<in> (UNIV :: 'input set)})"
+  have finp: "finite ({q. q \<in> S} \<times> {i. i \<in> I})"
     using rule4
     by simp
-  have "{(q,i). q \<in> S \<and> i \<in> (UNIV :: 'input set)} = {q. q \<in> S} \<times> {i. i \<in> (UNIV :: 'input set)}"
+  have "{(q,i). q \<in> S \<and> i \<in> I} = {q. q \<in> S} \<times> {i. i \<in> I}"
     by fast
-  then have finp2: "finite {(q,i). q \<in> S \<and> i \<in> (UNIV :: 'input set)}"
+  then have finp2: "finite {(q,i). q \<in> S \<and> i \<in> I}"
     using finp
     by argo
-  have "{(q,i). q \<in> S' \<and> (\<exists> y. out_star T' (q @ [i]) = Some y)} \<subseteq> {(q,i). q \<in> S \<and> i \<in> (UNIV :: 'input set)}"
-    using rule4
+  have "{(q,i). q \<in> S' \<and> (\<exists> y. out_star T' (q @ [i]) = Some y)} \<subseteq> {(q,i). q \<in> S \<and> i \<in> I}"
+    using rule4 mnew univI
     by auto
   then have fin2: "finite {(q,i). q \<in> S' \<and> (\<exists> y. out_star T' (q @ [i]) = Some y)}"
     using finp2 finite_subset
@@ -2014,8 +2033,8 @@ next
   then have snd: "norm_snd (S,F,T) \<le> norm_snd (S',F',T')"
     by auto
 
-  have invar: "invar (q_0,Q,f) (S',F',T')"
-    using rule4 algo_step_keeps_invar algo_step.rule4
+  have invar: "invar (q_0,f) (S',F',T')"
+    using rule4 algo_step_keeps_invar algo_step.rule4 mnew
     by meson
   have "\<exists> x. out_star T' (s @ inp) = Some x"
     by (metis lenf lens not_Some_eq obs_tree.exhaust old.prod.exhaust
@@ -2029,14 +2048,14 @@ next
   then obtain new_outf where
     new_outf: "out_star T' (fs @ inp) = Some new_outf"
     by fast
-  have query_s: "new_outs = (output_query (q_0,Q,f) (s @ inp))"
+  have query_s: "new_outs = (output_query (q_0,f) (s @ inp))"
     using invar new_outs
     by auto
-  have query_fs: "new_outf = (output_query (q_0,Q,f) (fs @ inp))"
+  have query_fs: "new_outf = (output_query (q_0,f) (fs @ inp))"
     using invar new_outf
     by auto
-  have "drop (length s) (output_query (q_0,Q,f) (s @ inp)) \<noteq>
-      drop (length fs) (output_query (q_0,Q,f) (fs @ inp))"
+  have "drop (length s) (output_query (q_0,f) (s @ inp)) \<noteq>
+      drop (length fs) (output_query (q_0,f) (fs @ inp))"
     using rule4
     by (metis output_query.simps)
   then have "drop (length s) new_outs \<noteq> drop (length fs) new_outf"
@@ -2069,7 +2088,7 @@ next
   then have card_splitup: "card {(q,p). q \<in> S' \<and> p \<in> F' \<and> (apart_text T' q p)} =
       card {(q,p). q \<in> S' \<and> p \<in> F' \<and> \<not> (q = s \<and> p = fs) \<and> apart_text T' q p} +
       card {(s,fs)}"
-    using fin3 union one_elem finite_subs card_Un_disjoint[of "{(q,p). q \<in> S' \<and> p \<in> F' \<and> \<not> (q = s \<and> p = fs) \<and> apart_text T' q p}""{(s,fs)}"]
+    using fin3 union one_elem finite_subs card_Un_disjoint[of "{(q,p). q \<in> S' \<and> p \<in> F' \<and> \<not> (q = s \<and> p = fs) \<and> apart_text T' q p}" "{(s,fs)}"]
     by argo
   have removed: "{(q,p). q \<in> S \<and> p \<in> F \<and> (apart_text T q p)} =
       {(q,p). q \<in> S \<and> p \<in> F \<and> \<not> (q = s \<and> p = fs) \<and> (apart_text T q p)}"
