@@ -218,7 +218,7 @@ proof -
     by blast
   then have "output_query (q_0,Q,t) iss = os \<Longrightarrow> length iss = length os"
     using trans_star_length
-    apply (auto split: prod.splits option.splits)
+    apply (simp split: prod.splits option.splits)
     using trans_star_output_state
     by fastforce
   then show ?thesis
@@ -475,7 +475,7 @@ next
   obtain ofs os where
     ofs: "op = os # ofs"
     using Cons
-    apply auto
+    apply simp
     by (meson Suc_length_conv)
   then show ?case proof (cases "t a")
     case None
@@ -496,7 +496,7 @@ next
       case (Pair tree c)
       have "otree_star (process_output_query tree ip ofs) ip \<noteq> None"
         using Cons ofs
-        apply auto
+        apply simp
         by (metis obs_tree.exhaust surj_pair)
       then obtain lt lout where
         "otree_star (process_output_query tree ip ofs) ip = Some (lt,lout)"
@@ -549,7 +549,7 @@ next
   obtain os ops where
     os: "op = os # ops"
     using a
-    apply auto
+    apply simp
     by (meson Suc_length_conv)
   then show ?case proof (cases acc)
     case Nil
@@ -627,7 +627,7 @@ next
                 None \<Rightarrow> None)"
               using Some False Pair Node Cons a
               using otree_star_output_query_different
-              apply auto
+              apply simp
               by (auto split: prod.splits option.splits)
             have h1: "otree_star q_0 (ac # list) = (case otree_star tree list of
                 Some (n,opl) \<Rightarrow>
@@ -1456,7 +1456,9 @@ proof -
       trans_star transmealy (f acc) is = (f (acc @ is),(drop (length acc) ops)))"
     using c
     by presburger
-  have "func_sim m T f" unfolding func_sim_def apply (auto simp: one m)
+  have "func_sim m T f" 
+    unfolding func_sim_def 
+    apply (simp add: one m)
     using calc
     by auto
   then show ?thesis
@@ -1617,7 +1619,7 @@ using assms proof (induction m "(S,F,T)" "(S',F',T')" rule: algo_step.induct)
   have finF: "finite F"
     using rule1(6)
     by simp
-  have "norm_fst (S,F,T) \<le> norm_fst (S \<union> {f},F - {f},T)" apply auto
+  have "norm_fst (S,F,T) \<le> norm_fst (S \<union> {f},F - {f},T)" 
     by (simp add: add_mono card_insert_le div_le_mono mult_le_mono)
   have "f \<notin> S"
     using rule1
@@ -1935,9 +1937,9 @@ next
     by auto
   have "{(q,p). q \<in> S \<and> p \<in> F \<and> \<not> ((q = s1 \<or> q = s2) \<and> p = f) \<and> apart_text T q p} \<subseteq>
     {(q,p). q \<in> S' \<and> p \<in> F' \<and> \<not> ((q = s1 \<or> q = s2) \<and> p = f) \<and> apart_text T' q p}"
-    apply auto
+    apply simp
     using retain_specific rule3
-    by blast +
+    by blast 
   then have "{(q,p). q \<in> S \<and> p \<in> F \<and> apart_text T q p} \<subseteq>
     {(q,p). q \<in> S' \<and> p \<in> F' \<and> \<not> ((q = s1 \<or> q = s2) \<and> p = f) \<and> apart_text T' q p}"
     using equal_first_half
