@@ -4,12 +4,12 @@ begin
 sledgehammer_params [provers = cvc4 verit z3 spass vampire zipperposition]
 
 
-datatype ('input,'output) obs_tree = Node "('input :: finite) list \<times> ('input \<Rightarrow> (('input,'output) obs_tree \<times> 'output) option)"
+datatype ('input,'output) obs_tree = Node "('input \<Rightarrow> (('input,'output) obs_tree \<times> 'output) option)"
 
 
 fun otree_star :: "('input,'output) obs_tree \<Rightarrow> ('input :: finite) list \<Rightarrow> (('input,'output) obs_tree \<times> 'output list) option" where
 "otree_star ot [] = Some (ot, [])" |
-"otree_star (Node (acc,t)) (i # is) = (case t i of
+"otree_star (Node t) (i # is) = (case t i of
     Some (n,op) \<Rightarrow> (case (otree_star n is) of
       Some (ot,ops) \<Rightarrow> Some (ot,op # ops) |
       None \<Rightarrow> None) |
@@ -18,7 +18,7 @@ fun otree_star :: "('input,'output) obs_tree \<Rightarrow> ('input :: finite) li
 
 fun out_star :: "('input,'output) obs_tree \<Rightarrow> ('input :: finite) list \<Rightarrow> ('output list) option" where
 "out_star ot [] = Some []" |
-"out_star (Node (acc,t)) (i # is) = (case t i of
+"out_star (Node t) (i # is) = (case t i of
     Some (n,op) \<Rightarrow>
     (case (out_star n is) of
       Some ops \<Rightarrow> Some (op # ops) |
@@ -57,13 +57,13 @@ fun process_output_query :: "('input,'output) obs_tree \<Rightarrow> ('input :: 
 "process_output_query q [] [] = q" |
 "process_output_query q i [] = undefined" |
 "process_output_query q [] _ = undefined" |
-"process_output_query (Node (acc,t)) (i # is) (op # ops) = (case t i of
-    None \<Rightarrow> (Node (acc,(\<lambda> j. if j = i
-      then Some (process_output_query (Node (acc @ [i],(\<lambda> k. None))) is ops,op)
-      else t j))) |
-    Some (tree,out) \<Rightarrow> (Node (acc,(\<lambda> j. if j = i
+"process_output_query (Node t) (i # is) (op # ops) = (case t i of
+    None \<Rightarrow> (Node (\<lambda> j. if j = i
+      then Some (process_output_query (Node (\<lambda> k. None)) is ops,op)
+      else t j)) |
+    Some (tree,out) \<Rightarrow> (Node (\<lambda> j. if j = i
       then Some ((process_output_query tree is ops),out)
-      else t j))))"
+      else t j)))"
 
 
 type_synonym ('input,'output) state = "('input list set \<times> 'input list set \<times> ('input,'output) obs_tree)"
@@ -83,7 +83,7 @@ fun invar :: "('state,('input :: finite),'output) mealy \<Rightarrow> (('input :
 fun transfunc :: "(('input :: finite),'output) state \<Rightarrow> ('input list,'input,'output) transition \<Rightarrow> bool" where
 "transfunc (S,F,T) t =
     (\<forall> s \<in> S. \<forall> i. (case otree_star T s of
-      Some (Node (acc,tran),op) \<Rightarrow> (case tran i of
+      Some (Node tran,op) \<Rightarrow> (case tran i of
         Some (n,out) \<Rightarrow>
         (if (s @ [i]) \<in> S
           then t (s,i) = (s @ [i],out)
@@ -242,10 +242,10 @@ lemma card_diff: "finite A \<Longrightarrow> card (A - B) \<le> card A"
 section "Star"
 
 
-lemma otree_eq_out: "(case otree_star (Node (l,r)) i of
-    None \<Rightarrow> out_star (Node (l,r)) i = None |
-    Some (n,out) \<Rightarrow> out_star (Node (l,r)) i = Some out)"
-proof (induction i arbitrary: l r)
+lemma otree_eq_out: "(case otree_star (Node r) i of
+    None \<Rightarrow> out_star (Node r) i = None |
+    Some (n,out) \<Rightarrow> out_star (Node r) i = Some out)"
+proof (induction i arbitrary: r)
   case Nil
   then show ?case
     by auto
@@ -257,36 +257,36 @@ next
       by simp
   next
     case (Some b)
-    then obtain l2 r2 o2 where
-      b: "b = (Node (l2,r2),o2)"
+    then obtain r2 o2 where
+      b: "b = (Node r2,o2)"
       by (metis obs_tree.exhaust surj_pair)
-    then have one: "otree_star (Node (l,r)) (a # i) = (case otree_star (Node (l2,r2)) i of
+    then have one: "otree_star (Node r) (a # i) = (case otree_star (Node r2) i of
         None \<Rightarrow> None |
         Some (node,out) \<Rightarrow> Some (node,o2 # out))"
       using Some
       by simp
-    have two: "out_star (Node (l,r)) (a # i) = (case out_star (Node (l2,r2)) i of
+    have two: "out_star (Node r) (a # i) = (case out_star (Node r2) i of
         None \<Rightarrow> None |
         Some out \<Rightarrow> Some (o2 # out))"
       using Some b
       by simp
-    have "(case otree_star (Node (l2,r2)) i of
-        None \<Rightarrow> out_star (Node (l2,r2)) i = None |
-        Some (n,out) \<Rightarrow> out_star (Node (l2,r2)) i = Some out)"
+    have "(case otree_star (Node r2) i of
+        None \<Rightarrow> out_star (Node r2) i = None |
+        Some (n,out) \<Rightarrow> out_star (Node r2) i = Some out)"
       using Cons
       by simp
     then show ?thesis
       using one two
-      apply (cases "otree_star (Node (l2,r2)) i")
+      apply (cases "otree_star (Node r2) i")
       by auto
   qed
 qed
 
 
-lemma out_eq_otree: "\<exists> node. (case out_star (Node (l,r)) i of
-    None \<Rightarrow> otree_star (Node (l,r)) i = None |
-    Some out \<Rightarrow> otree_star (Node (l,r)) i = Some (node,out))"
-proof (induction i arbitrary: l r)
+lemma out_eq_otree: "\<exists> node. (case out_star (Node r) i of
+    None \<Rightarrow> otree_star (Node r) i = None |
+    Some out \<Rightarrow> otree_star (Node r) i = Some (node,out))"
+proof (induction i arbitrary: r)
   case Nil
   then show ?case
     by auto
@@ -298,32 +298,32 @@ next
       by simp
   next
     case (Some b)
-    then obtain l2 r2 o2 where
-      b: "b = (Node (l2,r2),o2)"
+    then obtain r2 o2 where
+      b: "b = (Node r2,o2)"
       by (metis obs_tree.exhaust surj_pair)
-    then have one: "out_star (Node (l,r)) (a # i) = (case out_star (Node (l2,r2)) i of
+    then have one: "out_star (Node r) (a # i) = (case out_star (Node r2) i of
         None \<Rightarrow> None |
         Some out \<Rightarrow> Some (o2 # out))"
       using Some
       by simp
-    have two: "out_star (Node (l,r)) (a # i) = (case out_star (Node (l2,r2)) i of
+    have two: "out_star (Node r) (a # i) = (case out_star (Node r2) i of
         None \<Rightarrow> None |
         Some out \<Rightarrow> Some (o2 # out))"
       using Some b
       by simp
-    have three: "otree_star (Node (l,r)) (a # i) = (case otree_star (Node (l2,r2)) i of
+    have three: "otree_star (Node r) (a # i) = (case otree_star (Node r2) i of
         None \<Rightarrow> None |
         Some (node,out) \<Rightarrow> Some (node,o2 # out))"
       using Some b
       by simp
-    have "\<exists> node. (case out_star (Node (l2,r2)) i of
-        None \<Rightarrow> otree_star (Node (l2,r2)) i = None |
-        Some out \<Rightarrow> otree_star (Node (l2,r2)) i = Some (node,out))"
+    have "\<exists> node. (case out_star (Node r2) i of
+        None \<Rightarrow> otree_star (Node r2) i = None |
+        Some out \<Rightarrow> otree_star (Node r2) i = Some (node,out))"
       using Cons
       by simp
     then show ?thesis
       using one two three
-      apply (cases "out_star (Node (l2,r2)) i")
+      apply (cases "out_star (Node r2) i")
       by auto
   qed
 qed
@@ -331,41 +331,41 @@ qed
 
 lemma otree_induct_helper: "t i = (Some (tree,out)) \<Longrightarrow> length op = length acc \<Longrightarrow>
     otree_star (process_output_query tree acc op) acc = Some (lt,lout) \<Longrightarrow>
-    otree_star (process_output_query (Node (acc_n,t)) (i # acc) (out # op)) (i # acc) = Some (lt,out # lout)"
+    otree_star (process_output_query (Node t) (i # acc) (out # op)) (i # acc) = Some (lt,out # lout)"
   by (induction acc) auto
 
 
 lemma output_induct_helper: "t i = (Some (tree,out)) \<Longrightarrow> length op = length acc \<Longrightarrow>
     out_star (process_output_query tree acc op) acc = Some lout \<Longrightarrow>
-    out_star (process_output_query (Node (acc_n,t)) (i # acc) (out # op)) (i # acc) = Some (out # lout)"
+    out_star (process_output_query (Node t) (i # acc) (out # op)) (i # acc) = Some (out # lout)"
   by (induction acc) auto
 
 
 lemma otree_induct_helper_none: "t i = None \<Longrightarrow> length op = length acc \<Longrightarrow>
-    otree_star (process_output_query (Node (acc_n @ [i],Map.empty)) acc op) acc = Some (lt,lout) \<Longrightarrow>
-    otree_star (process_output_query (Node (acc_n,t)) (i # acc) (out # op)) (i # acc) = Some (lt,out # lout)"
+    otree_star (process_output_query (Node Map.empty) acc op) acc = Some (lt,lout) \<Longrightarrow>
+    otree_star (process_output_query (Node t) (i # acc) (out # op)) (i # acc) = Some (lt,out # lout)"
   by (induction acc) auto
 
 
 lemma output_induct_helper_none: "t i = None \<Longrightarrow> length op = length acc \<Longrightarrow>
-    out_star (process_output_query (Node (acc_n @ [i],Map.empty)) acc op) acc = Some lout \<Longrightarrow>
-    out_star (process_output_query (Node (acc_n,t)) (i # acc) (out # op)) (i # acc) = Some (out # lout)"
+    out_star (process_output_query (Node Map.empty) acc op) acc = Some lout \<Longrightarrow>
+    out_star (process_output_query (Node t) (i # acc) (out # op)) (i # acc) = Some (out # lout)"
   by (induction acc) auto
 
 
-lemma otree_split: "otree_star (Node (l,r)) (a # acc) = Some (tr1,out1) \<Longrightarrow> r a \<noteq> None"
+lemma otree_split: "otree_star (Node r) (a # acc) = Some (tr1,out1) \<Longrightarrow> r a \<noteq> None"
   by (auto split: prod.splits option.splits)
 
 
-lemma out_split: "out_star (Node (l,r)) (a # acc) = Some (out1) \<Longrightarrow> r a \<noteq> None"
+lemma out_split: "out_star (Node r) (a # acc) = Some (out1) \<Longrightarrow> r a \<noteq> None"
   by (auto split: prod.splits option.splits)
 
 
 lemma otree_star_split_none:
   assumes "t i = None" and
-    "otree_star (Node (accq,tq)) acc = Some (Node (ac,t),ops)"
-  shows "otree_star (Node (accq,tq)) (acc @ [i]) = None"
-using assms proof (induction acc arbitrary: ops accq tq ac)
+    "otree_star (Node tq) acc = Some (Node t,ops)"
+  shows "otree_star (Node tq) (acc @ [i]) = None"
+using assms proof (induction acc arbitrary: ops tq)
   case Nil
   then show ?case
     by simp
@@ -381,13 +381,13 @@ next
     obtain tr on where
       b: "b = (tr,on)"
       by fastforce
-    then have apart_i: "otree_star (Node (accq,tq)) ((a # acc @ [i])) =
+    then have apart_i: "otree_star (Node tq) ((a # acc @ [i])) =
         (case otree_star tr (acc @ [i]) of
           Some (n,opl) \<Rightarrow> Some (n,on # opl) |
           None \<Rightarrow> None)"
       using Some
       by auto
-    then have apart: "otree_star (Node (accq,tq)) ((a # acc)) =
+    then have apart: "otree_star (Node tq) ((a # acc)) =
         (case otree_star tr acc of
           Some (n,opl) \<Rightarrow> Some (n,on # opl) |
           None \<Rightarrow> None)"
@@ -399,14 +399,14 @@ next
       by (metis option.distinct(1) option.simps(4))
 
     then obtain opl where
-      opl: "otree_star tr acc = Some (Node (ac,t),opl)"
+      opl: "otree_star tr acc = Some (Node t,opl)"
       using Some Cons b apart
       by fastforce
-    obtain ntq nac where
-      ntq: "tr = Node (nac,ntq)"
+    obtain ntq where
+      ntq: "tr = Node ntq"
       using b Some Cons
-      by (metis obs_tree.exhaust surj_pair)
-    then have "otree_star (Node (nac,ntq)) (acc @ [i]) = None"
+      by (metis obs_tree.exhaust)
+    then have "otree_star (Node ntq) (acc @ [i]) = None"
       using Cons opl
       by blast
     then show ?thesis
@@ -418,9 +418,9 @@ qed
 
 lemma otree_star_split:
   assumes "t i = Some (tree,op)" and
-    "otree_star (Node (accq,tq)) acc = Some (Node (ac,t),ops)"
-  shows "otree_star (Node (accq,tq)) (acc @ [i]) = Some (tree,ops @ [op])"
-using assms proof (induction acc arbitrary: ops accq tq ac)
+    "otree_star (Node tq) acc = Some (Node t,ops)"
+  shows "otree_star (Node tq) (acc @ [i]) = Some (tree,ops @ [op])"
+using assms proof (induction acc arbitrary: ops tq)
   case Nil
   then show ?case
     by fastforce
@@ -436,13 +436,13 @@ next
     obtain tr on where
       b: "b = (tr,on)"
       by fastforce
-    then have apart_i: "otree_star (Node (accq,tq)) (a # acc @ [i]) =
+    then have apart_i: "otree_star (Node tq) (a # acc @ [i]) =
         (case otree_star tr (acc @ [i]) of
           Some (n,opl) \<Rightarrow> Some (n,on # opl) |
           None \<Rightarrow> None)"
       using Some
       by auto
-    then have apart: "otree_star (Node (accq,tq)) ((a # acc)) =
+    then have apart: "otree_star (Node tq) ((a # acc)) =
         (case otree_star tr acc of
           Some (n,opl) \<Rightarrow> Some (n,on # opl) |
           None \<Rightarrow> None)"
@@ -452,14 +452,14 @@ next
       using Some Cons b
       by (metis option.distinct(1) option.simps(4))
     then obtain opl where
-      opl: "otree_star tr acc = Some (Node (ac,t),opl)"
+      opl: "otree_star tr acc = Some (Node t,opl)"
       using Some Cons b apart
       by fastforce
-    obtain ntq nac where
-      ntq: "tr = Node (nac,ntq)"
+    obtain ntq where
+      ntq: "tr = Node ntq"
       using b Some Cons
-      by (metis obs_tree.exhaust surj_pair)
-    then have "otree_star (Node (nac,ntq)) (acc @ [i]) = Some (tree,opl @ [op])"
+      by (metis obs_tree.exhaust)
+    then have "otree_star (Node ntq) (acc @ [i]) = Some (tree,opl @ [op])"
       using Cons opl
       by blast
     then show ?thesis
@@ -472,8 +472,8 @@ qed
 section "process Output Query"
 
 
-lemma process_op_query_not_none: "length ip = length op \<Longrightarrow> otree_star (process_output_query (Node (acc,t)) ip op) ip \<noteq> None"
-proof (induction ip arbitrary: op t acc)
+lemma process_op_query_not_none: "length ip = length op \<Longrightarrow> otree_star (process_output_query (Node t) ip op) ip \<noteq> None"
+proof (induction ip arbitrary: op t)
   case Nil
   then show ?case
     by auto
@@ -486,13 +486,13 @@ next
     by (meson Suc_length_conv)
   then show ?case proof (cases "t a")
     case None
-    have "otree_star (process_output_query (Node (acc @ [a],(\<lambda> is. None))) ip ofs) ip \<noteq> None"
+    have "otree_star (process_output_query (Node Map.empty) ip ofs) ip \<noteq> None"
       using Cons ofs
       by auto
     then obtain lt lout where
-      "otree_star (process_output_query (Node (acc @ [a],(\<lambda> is. None))) ip ofs) ip = Some (lt,lout)"
+      "otree_star (process_output_query (Node Map.empty) ip ofs) ip = Some (lt,lout)"
       by fast
-    then have "otree_star (process_output_query (Node (acc,t)) (a # ip) op) (a # ip) = Some (lt,os # lout)"
+    then have "otree_star (process_output_query (Node t) (a # ip) op) (a # ip) = Some (lt,os # lout)"
       using Cons ofs None otree_induct_helper_none
       by auto
     then show ?thesis
@@ -508,7 +508,7 @@ next
       then obtain lt lout where
         "otree_star (process_output_query tree ip ofs) ip = Some (lt,lout)"
         by fast
-      then have "otree_star (process_output_query (Node (acc,t)) (a # ip) op) (a # ip) = Some (lt,c # lout)"
+      then have "otree_star (process_output_query (Node t) (a # ip) op) (a # ip) = Some (lt,c # lout)"
         using Cons ofs Some Pair otree_induct_helper
         by auto
       then show ?thesis
@@ -519,8 +519,8 @@ qed
 
 
 lemma output_query_different: "length op = length ip \<Longrightarrow> i \<noteq> ac \<Longrightarrow>
-    (case process_output_query (Node (acc,t)) (i # ip) (os # op) of
-      (Node (accs,ts)) \<Rightarrow> ts ac = t ac)"
+    (case process_output_query (Node t) (i # ip) (os # op) of
+      (Node ts) \<Rightarrow> ts ac = t ac)"
   by (auto split: prod.splits option.splits)
 
 
@@ -528,13 +528,13 @@ lemma otree_star_output_query_different:
   assumes "ac \<noteq> i" and
     "length ip = length op" and
     "t ac = Some (tree,outies)"
-  shows "otree_star (process_output_query (Node (acc,t)) (i # ip) (os # op)) (ac # list) =
+  shows "otree_star (process_output_query (Node t) (i # ip) (os # op)) (ac # list) =
       (case otree_star tree list of
         Some (n,opl) \<Rightarrow> Some (n,outies # opl) |
         None \<Rightarrow> None)"
 proof -
-  have "(case process_output_query (Node (acc,t)) (i # ip) (os # op) of
-      (Node (accs,ts)) \<Rightarrow> ts ac = t ac)"
+  have "(case process_output_query (Node t) (i # ip) (os # op) of
+      (Node ts) \<Rightarrow> ts ac = t ac)"
     using assms output_query_different[of op ip i ac]
     by auto
   then show ?thesis
@@ -565,88 +565,85 @@ next
   next
     case (Cons ac list)
     then show ?thesis proof (cases q_0)
-      case (Node x)
-      then show ?thesis proof (cases x)
-        case (Pair l r)
-        then show ?thesis using a proof (cases "a = ac")
-          case True
-          then show ?thesis proof (cases "r ac")
-            case None
-            then have "otree_star (q_0) (ac # list) = None"
-              using Pair Node
-              by auto
-            then show ?thesis
-              using a Cons
-              by simp
-          next
-            case (Some c)
-            then obtain tree outies where
-              outies: "r ac = Some (tree,outies)"
-              using Pair Node Cons a Some
-              by fastforce
-            then have h2: "otree_star (process_output_query q_0 (a # ip) (os # ops)) (ac # list) =
-                (case otree_star (process_output_query tree ip ops) list of
-                  Some (n,opl) \<Rightarrow> Some (n,outies # opl) |
-                  None \<Rightarrow> None)"
-              using Some True Pair Node Cons a otree_star_output_query_different
-              by auto
-            have h1: "otree_star q_0 (ac # list) = (case otree_star tree list of
+      case (Node r)
+      then show ?thesis using a proof (cases "a = ac")
+        case True
+        then show ?thesis proof (cases "r ac")
+          case None
+          then have "otree_star (q_0) (ac # list) = None"
+            using Node
+            by auto
+          then show ?thesis
+            using a Cons
+            by simp
+        next
+          case (Some c)
+          then obtain tree outies where
+            outies: "r ac = Some (tree,outies)"
+            using Node Cons a Some
+            by fastforce
+          then have h2: "otree_star (process_output_query q_0 (a # ip) (os # ops)) (ac # list) =
+              (case otree_star (process_output_query tree ip ops) list of
                 Some (n,opl) \<Rightarrow> Some (n,outies # opl) |
                 None \<Rightarrow> None)"
-              using outies Pair Node
-              by auto
-            have "otree_star q_0 (ac # list) \<noteq> None"
-              using a Cons
-              by blast
-            then have "otree_star tree list \<noteq> None"
-              using a h1
-              by (metis option.simps(4))
-            then have "otree_star (process_output_query tree ip ops) list \<noteq> None"
-              using a os
-              by force
-            then show ?thesis
-              using h2 os Cons
-              by force
-          qed
+            using Some True Node Cons a otree_star_output_query_different
+            by auto
+          have h1: "otree_star q_0 (ac # list) = (case otree_star tree list of
+              Some (n,opl) \<Rightarrow> Some (n,outies # opl) |
+              None \<Rightarrow> None)"
+            using outies Node
+            by auto
+          have "otree_star q_0 (ac # list) \<noteq> None"
+            using a Cons
+            by blast
+          then have "otree_star tree list \<noteq> None"
+            using a h1
+            by (metis option.simps(4))
+          then have "otree_star (process_output_query tree ip ops) list \<noteq> None"
+            using a os
+            by force
+          then show ?thesis
+            using h2 os Cons
+            by force
+        qed
+      next
+        case False
+        then show ?thesis proof (cases "r ac")
+          case None
+          then have "otree_star q_0 (ac # list) = None"
+            using Node
+            by auto
+          then show ?thesis
+            using a Cons
+            by simp
         next
-          case False
-          then show ?thesis proof (cases "r ac")
-            case None
-            then have "otree_star q_0 (ac # list) = None"
-              using Pair Node
-              by auto
-            then show ?thesis
-              using a Cons
-              by simp
-          next
-            case (Some c)
-            then obtain tree outies where
-              outies: "r ac = Some (tree,outies)"
-              using Pair Node Cons a Some
-              by fastforce
-            then have h2: "otree_star (process_output_query q_0 (a # ip) (os # ops)) (ac # list) =
-                (case otree_star tree list of
-                  Some (n,opl) \<Rightarrow> Some (n,outies # opl) |
-                  None \<Rightarrow> None)"
-              using Some False Pair Node Cons a otree_star_output_query_different
-              apply simp
-              by (auto split: prod.splits option.splits)
-            have h1: "otree_star q_0 (ac # list) = (case otree_star tree list of
-                Some (n,opl) \<Rightarrow>
-                Some (n,outies # opl) |
+          case (Some c)
+          then obtain tree outies where
+            outies: "r ac = Some (tree,outies)"
+            using Node Cons a Some
+            by fastforce
+          then have h2: "otree_star (process_output_query q_0 (a # ip) (os # ops)) (ac # list) =
+              (case otree_star tree list of
+                Some (n,opl) \<Rightarrow> Some (n,outies # opl) |
                 None \<Rightarrow> None)"
-              using outies Pair Node
-              by auto
-            have "otree_star q_0 (ac # list) \<noteq> None"
-              using a Cons
-              by blast
-            then have "otree_star tree list \<noteq> None"
-              using h1
-              by (metis option.simps(4))
-            then show ?thesis
-              using h2 Cons a
-              by (simp add: h1 os)
-          qed
+            using Some False Node Cons a otree_star_output_query_different
+            apply simp
+            by (auto split: prod.splits option.splits)
+          have h1: "otree_star q_0 (ac # list) = (case otree_star tree list of
+              Some (n,opl) \<Rightarrow>
+              Some (n,outies # opl) |
+              None \<Rightarrow> None)"
+            using outies Node
+            by auto
+          have "otree_star q_0 (ac # list) \<noteq> None"
+            using a Cons
+            by blast
+          then have "otree_star tree list \<noteq> None"
+            using h1
+            by (metis option.simps(4))
+          then show ?thesis
+            using h2 Cons a
+            by (simp add: h1 os)
         qed
       qed
     qed
@@ -659,22 +656,22 @@ lemma output_query_retains_some_output:
     "out_star q_0 acc \<noteq> None"
   shows "out_star (process_output_query q_0 ip op) acc \<noteq> None"
 proof -
-  obtain l r where
-    lr: "q_0 = Node (l,r)"
+  obtain r where
+    lr: "q_0 = Node r"
     using obs_tree.exhaust
     by auto
   then have "otree_star q_0 acc \<noteq> None"
-    using out_eq_otree[of l r acc] assms
+    using out_eq_otree[of r acc] assms
     by auto
   then have ot: "otree_star (process_output_query q_0 ip op) acc \<noteq> None"
     using output_query_retains_some assms
     by blast
-  obtain l2 r2 where
-    "(process_output_query q_0 ip op) = Node (l2,r2)"
+  obtain r2 where
+    "(process_output_query q_0 ip op) = Node r2"
     using obs_tree.exhaust
     by auto
   then have "out_star (process_output_query q_0 ip op) acc \<noteq> None"
-    using otree_eq_out[of l2 r2 acc] ot
+    using otree_eq_out[of r2 acc] ot
     by auto
   then show ?thesis
     by simp
@@ -683,17 +680,17 @@ qed
 
 lemma process_op_query_not_none_output:
   assumes "length ip = length op"
-  shows "out_star (process_output_query (Node (acc,t)) ip op) ip \<noteq> None"
+  shows "out_star (process_output_query (Node t) ip op) ip \<noteq> None"
 proof -
-  have ot: "otree_star (process_output_query (Node (acc,t)) ip op) ip \<noteq> None"
+  have ot: "otree_star (process_output_query (Node t) ip op) ip \<noteq> None"
     using output_query_retains_some assms process_op_query_not_none
     by blast
-  obtain l2 r2 where
-    "(process_output_query (Node (acc,t)) ip op) = Node (l2,r2)"
+  obtain r2 where
+    "(process_output_query (Node t) ip op) = Node r2"
     using obs_tree.exhaust
     by auto
-  then have "out_star (process_output_query (Node (acc,t)) ip op) ip \<noteq> None"
-    using otree_eq_out[of l2 r2 acc] ot
+  then have "out_star (process_output_query (Node t) ip op) ip \<noteq> None"
+    using otree_eq_out[of r2] ot
     by (smt (verit) option.simps(4) out_eq_otree)
   then show ?thesis
     by simp
@@ -702,10 +699,10 @@ qed
 
 lemma output_query_retains_some_specific:
   assumes "length ip = length op" and
-    "otree_star (Node (l,r)) acc = Some (tr1,out1)" and
-    "otree_star (process_output_query (Node (l,r)) ip op) acc = Some (tr2,out2)"
+    "otree_star (Node r) acc = Some (tr1,out1)" and
+    "otree_star (process_output_query (Node r) ip op) acc = Some (tr2,out2)"
   shows "out1 = out2"
-using assms proof (induction acc arbitrary: ip op l r tr1 tr2 out1 out2)
+using assms proof (induction acc arbitrary: ip op r tr1 tr2 out1 out2)
   case Nil
   then show ?case
     by simp
@@ -725,56 +722,56 @@ next
       op: "op = ops # olist"
       using c
       by (metis Suc_length_conv)
-    obtain l2 r2 outs where
-      ra: "r a = Some (Node (l2,r2),outs)"
+    obtain r2 outs where
+      ra: "r a = Some (Node r2,outs)"
       using c otree_split option.exhaust
       by (metis obs_tree.exhaust old.prod.exhaust)
     then show ?thesis proof (cases "i = a")
       case True
-      then have "otree_star (process_output_query (Node (l,r)) ip op) (a # acc) =
-          otree_star (process_output_query (Node (l,r)) (i # ilist) (ops # olist)) (a # acc)"
+      then have "otree_star (process_output_query (Node r) ip op) (a # acc) =
+          otree_star (process_output_query (Node r) (i # ilist) (ops # olist)) (a # acc)"
         using Cons op
         by presburger
       also have "\<dots> = otree_star (case r i of
-          None \<Rightarrow> (Node (l,(\<lambda> j. if j = i
-            then Some (process_output_query (Node (acc @ [i],(\<lambda> k. None))) ilist olist,ops)
-            else r j))) |
-          Some (tree,out) \<Rightarrow> (Node (l,(\<lambda> j. if j = i
+          None \<Rightarrow> (Node (\<lambda> j. if j = i
+            then Some (process_output_query (Node (\<lambda> k. None)) ilist olist,ops)
+            else r j)) |
+          Some (tree,out) \<Rightarrow> (Node (\<lambda> j. if j = i
             then Some ((process_output_query tree ilist olist),out)
-            else r j)))) (a # acc)"
+            else r j))) (a # acc)"
         using True ra
         by simp
-      also have "\<dots> = otree_star (Node (l,(\<lambda> j. if j = i
-          then Some ((process_output_query (Node (l2,r2)) ilist olist,outs))
-          else r j))) (a # acc)"
+      also have "\<dots> = otree_star (Node (\<lambda> j. if j = i
+          then Some ((process_output_query (Node r2) ilist olist,outs))
+          else r j)) (a # acc)"
         using ra
         by (simp add: True)
-      also have "\<dots> = (case otree_star (process_output_query (Node (l2,r2)) ilist olist) acc of
+      also have "\<dots> = (case otree_star (process_output_query (Node r2) ilist olist) acc of
           Some (node,output) \<Rightarrow> Some (node,outs # output) |
           None \<Rightarrow> None)"
         using ra True
         by auto
-      finally have calc1: "otree_star (process_output_query (Node (l,r)) ip op) (a # acc) =
-          (case otree_star (process_output_query (Node (l2,r2)) ilist olist) acc of
+      finally have calc1: "otree_star (process_output_query (Node r) ip op) (a # acc) =
+          (case otree_star (process_output_query (Node r2) ilist olist) acc of
             Some (node,output) \<Rightarrow> Some (node,outs # output) |
             None \<Rightarrow> None)"
         by blast
-      have "otree_star (process_output_query (Node (l2,r2)) ilist olist) acc \<noteq> None"
+      have "otree_star (process_output_query (Node r2) ilist olist) acc \<noteq> None"
         using calc1 c Cons True
         by (metis not_Some_eq option.simps(4))
       then obtain node1 outputs1 where
-        n1: "otree_star (process_output_query (Node (l2,r2)) ilist olist) acc = Some (node1,outputs1)"
+        n1: "otree_star (process_output_query (Node r2) ilist olist) acc = Some (node1,outputs1)"
         by fast
-      have calc2: "otree_star (Node (l,r)) (a # acc) = (case otree_star (Node (l2,r2)) acc of
+      have calc2: "otree_star (Node r) (a # acc) = (case otree_star (Node r2) acc of
           Some (node,output) \<Rightarrow> Some (node,outs # output) |
           None \<Rightarrow> None)"
         using c ra True
         by simp
-      then have "otree_star (Node (l2,r2)) acc \<noteq> None"
+      then have "otree_star (Node r2) acc \<noteq> None"
         using c
         by (metis not_Some_eq option.simps(4))
       then obtain node2 outputs2 where
-        n2: "otree_star (Node (l2,r2)) acc = Some (node2,outputs2)"
+        n2: "otree_star (Node r2) acc = Some (node2,outputs2)"
         by auto
       have "outputs1 = outputs2"
         using c.IH n1 n2 c(2) op Cons append1_eq_conv length_Cons
@@ -784,27 +781,27 @@ next
         by (simp add: n1 n2)
     next
       case False
-      then have "otree_star (process_output_query (Node (l,r)) ip op) (a # acc) =
-          otree_star (process_output_query (Node (l,r)) (i # ilist) (ops # olist)) (a # acc)"
+      then have "otree_star (process_output_query (Node r) ip op) (a # acc) =
+          otree_star (process_output_query (Node r) (i # ilist) (ops # olist)) (a # acc)"
         using Cons op
         by presburger
       also have "\<dots> = otree_star (case r i of
-          None \<Rightarrow> (Node (l,(\<lambda> j. if j = i
-            then Some (process_output_query (Node (l @ [i],(\<lambda> k. None))) ilist olist,ops)
-            else r j))) |
-          Some (tree,out) \<Rightarrow> (Node (l,(\<lambda> j. if j = i
+          None \<Rightarrow> (Node (\<lambda> j. if j = i
+            then Some (process_output_query (Node (\<lambda> k. None)) ilist olist,ops)
+            else r j)) |
+          Some (tree,out) \<Rightarrow> (Node (\<lambda> j. if j = i
             then Some ((process_output_query tree ilist olist),out)
-            else r j)))) (a # acc)"
+            else r j))) (a # acc)"
         using False ra
         by simp
-      also have "\<dots> = (case otree_star (Node (l2,r2)) acc of
+      also have "\<dots> = (case otree_star (Node r2) acc of
           Some (node,output) \<Rightarrow> Some (node,outs # output) |
           None \<Rightarrow> None)"
         using ra
         apply (cases "r i")
         using False
         by auto
-      also have "\<dots> = otree_star (Node (l,r)) (a # acc)"
+      also have "\<dots> = otree_star (Node r) (a # acc)"
         using ra
         by simp
       finally show ?thesis
@@ -817,8 +814,8 @@ qed
 
 lemma output_query_retains_some_specific_output:
   assumes "length ip = length op" and
-    "out_star (Node (l,r)) acc = Some (out1)"
-  shows "Some out1 = out_star (process_output_query (Node (l,r)) ip op) acc"
+    "out_star (Node r) acc = Some (out1)"
+  shows "Some out1 = out_star (process_output_query (Node r) ip op) acc"
 using assms proof (induction acc arbitrary: ip op l r out1)
   case Nil
   then show ?case
@@ -839,57 +836,57 @@ next
       op: "op = ops # olist"
       using c
       by (metis Suc_length_conv)
-    obtain l2 r2 outs where
-      ra: "r a = Some (Node (l2,r2),outs)"
+    obtain r2 outs where
+      ra: "r a = Some (Node r2,outs)"
       using c out_split option.exhaust
       by (metis obs_tree.exhaust old.prod.exhaust)
     then show ?thesis proof (cases "i = a")
       case True
 
-      then have "out_star (process_output_query (Node (l,r)) ip op) (a # acc) =
-          out_star (process_output_query (Node (l,r)) (i # ilist) (ops # olist)) (a # acc)"
+      then have "out_star (process_output_query (Node r) ip op) (a # acc) =
+          out_star (process_output_query (Node r) (i # ilist) (ops # olist)) (a # acc)"
         using Cons op
         by presburger
       also have "\<dots> = out_star (case r i of
-          None \<Rightarrow> (Node (l,(\<lambda> j. if j = i
-            then Some ((process_output_query (Node (acc @ [i],(\<lambda> k. None))) ilist olist),ops)
-            else r j))) |
-          Some (tree,out) \<Rightarrow> (Node (l,(\<lambda> j. if j = i
+          None \<Rightarrow> (Node (\<lambda> j. if j = i
+            then Some ((process_output_query (Node (\<lambda> k. None)) ilist olist),ops)
+            else r j)) |
+          Some (tree,out) \<Rightarrow> (Node (\<lambda> j. if j = i
             then Some ((process_output_query tree ilist olist),out)
-            else r j)))) (a # acc)"
+            else r j))) (a # acc)"
         using True ra
         by simp
-      also have "\<dots> = out_star (Node (l,(\<lambda> j. if j = i
-          then Some ((process_output_query (Node (l2,r2)) ilist olist,outs))
-          else r j))) (a # acc)"
+      also have "\<dots> = out_star (Node (\<lambda> j. if j = i
+          then Some ((process_output_query (Node r2) ilist olist,outs))
+          else r j)) (a # acc)"
         using ra
         by (simp add: True)
-      also have "\<dots> = (case out_star (process_output_query (Node (l2,r2)) ilist olist) acc of
+      also have "\<dots> = (case out_star (process_output_query (Node r2) ilist olist) acc of
           Some output \<Rightarrow> Some (outs # output) |
           None \<Rightarrow> None)"
         using ra True
         by auto
-      finally have calc1: "out_star (process_output_query (Node (l,r)) ip op) (a # acc) =
-          (case out_star (process_output_query (Node (l2,r2)) ilist olist) acc of
+      finally have calc1: "out_star (process_output_query (Node r) ip op) (a # acc) =
+          (case out_star (process_output_query (Node r2) ilist olist) acc of
             Some output \<Rightarrow> Some (outs # output) |
             None \<Rightarrow> None)"
         by blast
-      have "out_star (process_output_query (Node (l2,r2)) ilist olist) acc \<noteq> None"
+      have "out_star (process_output_query (Node r2) ilist olist) acc \<noteq> None"
         using calc1 c(3) Cons True output_query_retains_some_output
         by (metis c.prems(1) option.discI option.simps(4))
       then obtain outputs1 where
-        n1: "out_star (process_output_query (Node (l2,r2)) ilist olist) acc = Some (outputs1)"
+        n1: "out_star (process_output_query (Node r2) ilist olist) acc = Some (outputs1)"
         by fast
-      have calc2: "out_star (Node (l,r)) (a # acc) = (case out_star (Node (l2,r2)) acc of
+      have calc2: "out_star (Node r) (a # acc) = (case out_star (Node r2) acc of
           Some output \<Rightarrow> Some (outs # output) |
           None \<Rightarrow> None)"
         using c ra True
         by simp
-      then have "out_star (Node (l2,r2)) acc \<noteq> None"
+      then have "out_star (Node r2) acc \<noteq> None"
         using c
         by (metis not_Some_eq option.simps(4))
       then obtain outputs2 where
-        n2: "out_star (Node (l2,r2)) acc = Some (outputs2)"
+        n2: "out_star (Node r2) acc = Some (outputs2)"
         by auto
       have "outputs1 = outputs2"
         using c.IH n1 n2 c(2) op Cons append1_eq_conv length_Cons
@@ -899,28 +896,28 @@ next
         by (simp add: n1 n2)
     next
       case False
-      then have "out_star (process_output_query (Node (l,r)) ip op) (a # acc) =
-          out_star (process_output_query (Node (l,r)) (i # ilist) (ops # olist)) (a # acc)"
+      then have "out_star (process_output_query (Node r) ip op) (a # acc) =
+          out_star (process_output_query (Node r) (i # ilist) (ops # olist)) (a # acc)"
         using Cons op
         by presburger
       also have "\<dots> = out_star (case r i of
-            None \<Rightarrow> (Node (l,(\<lambda> j. if j = i
-              then Some (process_output_query (Node (l @ [i],(\<lambda> k. None))) ilist olist,ops)
-              else r j))) |
-            Some (tree,out) \<Rightarrow> (Node (l,(\<lambda> j. if j = i
+            None \<Rightarrow> (Node (\<lambda> j. if j = i
+              then Some (process_output_query (Node (\<lambda> k. None)) ilist olist,ops)
+              else r j)) |
+            Some (tree,out) \<Rightarrow> (Node (\<lambda> j. if j = i
               then Some ((process_output_query tree ilist olist),out)
-              else r j))))
+              else r j)))
           (a # acc)"
         using False ra
         by simp
-      also have "\<dots> = (case out_star (Node (l2,r2)) acc of
+      also have "\<dots> = (case out_star (Node r2) acc of
           Some output \<Rightarrow> Some (outs # output) |
           None \<Rightarrow> None)"
         using ra
         apply (cases "r i")
         using False
         by auto
-      also have "\<dots> = out_star (Node (l,r)) (a # acc)"
+      also have "\<dots> = out_star (Node r) (a # acc)"
         using ra
         by simp
       finally show ?thesis
@@ -933,27 +930,27 @@ qed
 
 lemma op_query_output_not_equal:
   assumes "i \<noteq> j"
-  shows "out_star (process_output_query (Node (acc,t)) (i # is) (op # ops)) (j # js) = out_star (Node (acc,t)) (j # js)"
+  shows "out_star (process_output_query (Node t) (i # is) (op # ops)) (j # js) = out_star (Node t) (j # js)"
 proof -
-  have "(process_output_query (Node (acc,t)) (i # is) (op # ops)) = (case t i of
-      None \<Rightarrow> (Node (acc,(\<lambda> j. if j = i
-        then Some (process_output_query (Node (acc @ [i],(\<lambda> k. None))) is ops,op)
-        else t j))) |
-      Some (tree,out) \<Rightarrow> (Node (acc,(\<lambda> j. if j = i
+  have "(process_output_query (Node t) (i # is) (op # ops)) = (case t i of
+      None \<Rightarrow> (Node (\<lambda> j. if j = i
+        then Some (process_output_query (Node (\<lambda> k. None)) is ops,op)
+        else t j)) |
+      Some (tree,out) \<Rightarrow> (Node (\<lambda> j. if j = i
         then Some ((process_output_query tree is ops),out)
-        else t j))))"
+        else t j)))"
     by simp
   then show ?thesis proof (cases "t i")
     case None
-    then have eq: "(process_output_query (Node (acc,t)) (i # is) (op # ops)) =
-        (Node (acc,(\<lambda> j. if j = i
-          then Some (process_output_query (Node (acc @ [i],(\<lambda> k. None))) is ops,op)
-          else t j)))"
+    then have eq: "(process_output_query (Node t) (i # is) (op # ops)) =
+        (Node (\<lambda> j. if j = i
+          then Some (process_output_query (Node (\<lambda> k. None)) is ops,op)
+          else t j))"
       by simp
-    have "out_star (Node (acc,(\<lambda> j. if j = i
-          then Some (process_output_query (Node (acc @ [i],(\<lambda> k. None))) is ops,op)
-          else t j))) (j # js) =
-        out_star (Node (acc,t)) (j # js)"
+    have "out_star (Node (\<lambda> j. if j = i
+          then Some (process_output_query (Node (\<lambda> k. None)) is ops,op)
+          else t j)) (j # js) =
+        out_star (Node t) (j # js)"
       using assms
       by auto
     then show ?thesis
@@ -964,16 +961,16 @@ proof -
     obtain tree out where
       "a = (tree,out)"
       by fastforce
-    then have eq: "(process_output_query (Node (acc,t)) (i # is) (op # ops)) =
-        (Node (acc,(\<lambda> j. if j = i
+    then have eq: "(process_output_query (Node t) (i # is) (op # ops)) =
+        (Node (\<lambda> j. if j = i
           then Some ((process_output_query tree is ops),out)
-          else t j)))"
+          else t j))"
       using Some
       by fastforce
-    have "out_star (Node (acc,(\<lambda> j. if j = i
+    have "out_star (Node (\<lambda> j. if j = i
           then Some ((process_output_query tree is ops),out)
-          else t j))) (j # js) =
-        out_star (Node (acc,t)) (j # js)"
+          else t j)) (j # js) =
+        out_star (Node t) (j # js)"
       using assms
       by auto
     then show ?thesis
@@ -994,8 +991,8 @@ using assms proof (induction i arbitrary: out j T)
     by blast
 next
   case (Cons a i)
-  obtain acc t where
-    node: "T = Node (acc,t)"
+  obtain t where
+    node: "T = Node t"
     using obs_tree.exhaust
     by auto
   have lenj: "length j = length out"
@@ -1026,18 +1023,18 @@ next
         case None
 
         have proc: "(process_output_query T (jfront # js) (op # os)) =
-            (Node (acc,(\<lambda> j. if j = jfront
-              then Some (process_output_query (Node (acc @ [jfront],(\<lambda> k. None))) js os,op)
-              else t j)))"
+            (Node (\<lambda> j. if j = jfront
+              then Some (process_output_query (Node (\<lambda> k. None)) js os,op)
+              else t j))"
           using node None
           by auto
         then have "out_star (process_output_query T (jfront # js) (op # os)) (a # i) =
-            out_star (Node (acc,(\<lambda> j. if j = jfront
-              then Some (process_output_query (Node (acc @ [jfront],(\<lambda> k. None))) js os,op)
-              else t j))) (a # i)"
+            out_star (Node (\<lambda> j. if j = jfront
+              then Some (process_output_query (Node (\<lambda> k. None)) js os,op)
+              else t j)) (a # i)"
           by force
         also have b: "\<dots> = (case (\<lambda> j. if j = jfront
-              then Some (process_output_query (Node (acc @ [jfront],(\<lambda> k. None))) js os,op)
+              then Some (process_output_query (Node (\<lambda> k. None)) js os,op)
               else t j) a of
             Some (n,op) \<Rightarrow>
             (case (out_star n i) of
@@ -1046,13 +1043,13 @@ next
             None \<Rightarrow> None)"
           by auto
         also have c: "\<dots> =
-            (case (out_star (process_output_query (Node (acc @ [jfront],(\<lambda> k. None))) js os) i) of
+            (case (out_star (process_output_query (Node (\<lambda> k. None)) js os) i) of
               Some ops \<Rightarrow> Some (op # ops) |
               None \<Rightarrow> None)"
           using eq
           by auto
 
-        have induc_three: "(out_star (process_output_query (Node (acc @ [jfront],(\<lambda> k. None))) js os) i) \<noteq> None"
+        have induc_three: "(out_star (process_output_query (Node (\<lambda> k. None)) js os) i) \<noteq> None"
           using calculation Cons proc
           by (metis c j option.simps(4) out)
         then show ?thesis proof (cases "i = []")
@@ -1065,18 +1062,17 @@ next
             "i = ifront # is"
             using False list.exhaust
             by auto
-          then have "(out_star (Node (acc @ [jfront],(\<lambda> k. None))) i) = (case (\<lambda> k. None) ifront of
+          then have "(out_star (Node (\<lambda> k. None)) i) = (case (\<lambda> k. None) ifront of
               Some (n,op) \<Rightarrow>
               (case (out_star n is) of
                 Some ops \<Rightarrow> Some (op # ops) |
                 None \<Rightarrow> None) |
               None \<Rightarrow> None)"
             by simp
-          then have induc_one: "(out_star (Node (acc @ [jfront],(\<lambda> k. None))) i) = None"
+          then have induc_one: "(out_star (Node (\<lambda> k. None)) i) = None"
             by auto
           show ?thesis
-            using Cons.IH[of "(Node (acc @ [jfront],(\<lambda> k. None)))" js os]
-            using induc_one induc_two induc_three eq j
+            using Cons.IH[of "(Node (\<lambda> k. None))" js os] induc_one induc_two induc_three eq j
             by auto
         qed
       next
@@ -1085,15 +1081,15 @@ next
           atree: "b = (atree,aout)"
           by (metis surj_pair)
         then have proc: "(process_output_query T (jfront # js) (op # os)) =
-            Node (acc,(\<lambda> j. if j = jfront
+            Node (\<lambda> j. if j = jfront
               then Some ((process_output_query atree js os),aout)
-              else t j))"
+              else t j)"
           using node Some
           by auto
         then have "out_star (process_output_query T (jfront # js) (op # os)) (a # i) =
-            out_star (Node (acc,(\<lambda> j. if j = jfront
+            out_star (Node (\<lambda> j. if j = jfront
               then Some ((process_output_query atree js os),aout)
-              else t j))) (a # i)"
+              else t j)) (a # i)"
           by argo
         also have "\<dots> = (case (\<lambda> j. if j = jfront
               then Some ((process_output_query atree js os),aout)
@@ -1166,12 +1162,12 @@ next
       by simp
   next
     case (Cons a i)
-    obtain acc f where
-      T: "T = Node (acc,f)"
+    obtain f where
+      T: "T = Node f"
       using obs_tree.exhaust
       by auto
-    obtain acc' f' where
-      T': "T' = Node (acc',f')"
+    obtain f' where
+      T': "T' = Node f'"
       using obs_tree.exhaust
       by auto
     obtain b js where
@@ -1201,21 +1197,21 @@ next
 
     show ?case proof (cases "f a")
       case None
-      have query: "process_output_query (Node (acc,f)) (b # js) (op # os) = (Node (acc,(\<lambda> k. if k = b
-          then Some (process_output_query (Node (acc @ [b],(\<lambda> k. None))) js os,op)
-          else f k)))"
+      have query: "process_output_query (Node f) (b # js) (op # os) = (Node (\<lambda> k. if k = b
+          then Some (process_output_query (Node (\<lambda> k. None)) js os,op)
+          else f k))"
         using Cons None eq
         by auto
-      have "out_star T' (a # i) = out_star (process_output_query (Node (acc,f)) (b # js) (op # os)) (a # i)"
+      have "out_star T' (a # i) = out_star (process_output_query (Node f) (b # js) (op # os)) (a # i)"
         using Cons j out T
         by argo
-      also have "\<dots> = out_star (Node (acc,(\<lambda> k. if k = b
-          then Some (process_output_query (Node (acc @ [b],(\<lambda> k. None))) js os,op)
-          else f k))) (a # i)"
+      also have "\<dots> = out_star (Node (\<lambda> k. if k = b
+          then Some (process_output_query (Node (\<lambda> k. None)) js os,op)
+          else f k)) (a # i)"
         using query
         by argo
       also have "\<dots> = (case (\<lambda> k. if k = b
-            then Some (process_output_query (Node (acc @ [b],(\<lambda> k. None))) js os,op)
+            then Some (process_output_query (Node (\<lambda> k. None)) js os,op)
             else f k) a of
           Some (n,op) \<Rightarrow>
           (case (out_star n i) of
@@ -1223,7 +1219,7 @@ next
             None \<Rightarrow> None) |
           None \<Rightarrow> None)"
         by simp
-      also have "\<dots> = (case (out_star (process_output_query (Node (acc @ [b],(\<lambda> k. None))) js os) i) of
+      also have "\<dots> = (case (out_star (process_output_query (Node (\<lambda> k. None)) js os) i) of
           Some ops \<Rightarrow> Some (op # ops) |
           None \<Rightarrow> None)"
         by (simp add: eq)
@@ -1235,21 +1231,21 @@ next
           by auto
       next
         case (Cons c list)
-        have ih_prem2: "out_star (Node (acc @ [b],\<lambda> k. None)) i = None"
+        have ih_prem2: "out_star (Node (\<lambda> k. None)) i = None"
           using Cons
           by fastforce
         obtain T'' where
-          T'': "T'' = process_output_query (Node (acc @ [b],\<lambda> k. None)) js os"
+          T'': "T'' = process_output_query (Node (\<lambda> k. None)) js os"
           by simp
-        have ih_prem4: "\<forall> k y. out_star (Node (acc @ [b],\<lambda> k. None)) k = Some y \<longrightarrow> trans_star_output t q' k = y"
-          by (metis Cons.prems(5) eq list.exhaust out_split out_star.simps(1) trans_star_output.simps(1))
+        have ih_prem4: "\<forall> k y. out_star (Node (\<lambda> k. None)) k = Some y \<longrightarrow> trans_star_output t q' k = y"
+          by (metis Cons.prems(5) list.exhaust out_split out_star.simps(1) trans_star_output.simps(1))
         have "(out_star T'' i) \<noteq> None \<longrightarrow>
             (out_star T'' i) = Some (trans_star_output t q' i)"
-          using Cons.IH[of js "(Node (acc @ [b],(\<lambda> k. None)))" q' os T''] ih_prem1 ih_prem2 ih_prem3
+          using Cons.IH[of js "(Node (\<lambda> k. None))" q' os T''] ih_prem1 ih_prem2 ih_prem3
           using ih_prem4 T'' ih_prem5
           by blast
-        then have "(out_star (process_output_query (Node (acc @ [b],\<lambda> k. None)) js os) i) \<noteq> None \<longrightarrow>
-            (out_star (process_output_query (Node (acc @ [b],\<lambda> k. None)) js os) i) = Some (trans_star_output t q' i)"
+        then have "(out_star (process_output_query (Node (\<lambda> k. None)) js os) i) \<noteq> None \<longrightarrow>
+            (out_star (process_output_query (Node (\<lambda> k. None)) js os) i) = Some (trans_star_output t q' i)"
           using T''
           by blast
         then show ?thesis
@@ -1261,16 +1257,16 @@ next
       obtain nextnode nextout where
         nextnode: "c = (nextnode,nextout)"
         by fastforce
-      have query: "process_output_query (Node (acc,f)) (b # js) (op # os) =
-          (Node (acc,(\<lambda> j. if j = b
+      have query: "process_output_query (Node f) (b # js) (op # os) =
+          (Node (\<lambda> j. if j = b
             then Some ((process_output_query nextnode js os),nextout)
-            else f j)))"
+            else f j))"
         using eq nextnode Some
         by auto
-      then have a: "out_star (process_output_query (Node (acc,f)) (b # js) (op # os)) (a # i) =
-          out_star (Node (acc,(\<lambda> j. if j = b
+      then have a: "out_star (process_output_query (Node f) (b # js) (op # os)) (a # i) =
+          out_star (Node (\<lambda> j. if j = b
             then Some ((process_output_query nextnode js os),nextout)
-            else f j))) (a # i)"
+            else f j)) (a # i)"
         by presburger
       also have b: "\<dots> = (case (\<lambda> j. if j = b
             then Some ((process_output_query nextnode js os),nextout)
@@ -1759,7 +1755,7 @@ next
     by blast
   then have a: "out_star T' (s @ [i]) \<noteq> None"
     using process_op_query_not_none_output rule2
-    by (metis obs_tree.exhaust old.prod.exhaust)
+    by (metis obs_tree.exhaust)
   have retain: "\<forall> is. out_star T is \<noteq> None \<longrightarrow> out_star T' is \<noteq> None"
     using rule2 lens output_query_retains_some_output
     by blast
@@ -1831,13 +1827,13 @@ next
       Some x) \<and> (\<exists> y. out_star T' (p @ i) = Some y \<and> drop (length q) x \<noteq> drop (length p) y))}"
     using fincross
     by (simp add: finite_subset)
-  obtain l r where
-    lr: "T = Node (l,r)"
+  obtain r where
+    lr: "T = Node r"
     using obs_tree.exhaust
     by auto
-  have front: "\<forall> p x i2. out_star (Node (l,r)) (p @ i2) = Some x \<longrightarrow>
-      out_star (process_output_query (Node (l,r)) (s @ [i]) out) (p @ i2) = Some x"
-    using rule2(6) lens output_query_retains_some_specific_output[of "s @ [i]" out l r]
+  have front: "\<forall> p x i2. out_star (Node r) (p @ i2) = Some x \<longrightarrow>
+      out_star (process_output_query (Node r) (s @ [i]) out) (p @ i2) = Some x"
+    using rule2(6) lens output_query_retains_some_specific_output[of "s @ [i]" out r]
     by presburger
   have one: "{(q,p). q \<in> S' \<and> p \<in> F' \<and> (\<exists> i x. (out_star T' (q @ i) = Some x) \<and>
         (\<exists> y. out_star T' (p @ i) = Some y \<and> drop (length q) x \<noteq> drop (length p) y))} \<supseteq>
@@ -1924,7 +1920,7 @@ next
   obtain z where
     z: "out_star T' (f @ w) = Some z"
     using rule3 lens
-    by (metis not_None_eq obs_tree.exhaust process_op_query_not_none_output surj_pair)
+    by (metis not_None_eq obs_tree.exhaust process_op_query_not_none_output)
   have "apart_witness w T' s1 s2"
     using retain_specific rule3
     by auto
@@ -2037,14 +2033,14 @@ next
     using rule4 algo_step_keeps_invar algo_step.rule4 mnew
     by meson
   have "\<exists> x. out_star T' (s @ inp) = Some x"
-    by (metis lenf lens not_Some_eq obs_tree.exhaust old.prod.exhaust
+    by (metis lenf lens not_Some_eq obs_tree.exhaust
     output_query_retains_some_output process_op_query_not_none_output rule4.hyps(11))
   then obtain new_outs where
     new_outs: "out_star T' (s @ inp) = Some new_outs"
     by fast
   have "\<exists> y. out_star T' (fs @ inp) = Some y"
     using process_op_query_not_none_output
-    by (metis lenf not_Some_eq obs_tree.exhaust old.prod.exhaust rule4.hyps(11))
+    by (metis lenf not_Some_eq obs_tree.exhaust rule4.hyps(11))
   then obtain new_outf where
     new_outf: "out_star T' (fs @ inp) = Some new_outf"
     by fast
