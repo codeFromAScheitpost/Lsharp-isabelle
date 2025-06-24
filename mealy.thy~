@@ -7,7 +7,7 @@ sledgehammer_params [provers = cvc4 verit z3 spass vampire zipperposition]
 text \<open>transitions mealy\<close>
 type_synonym ('state,'input,'output) transition = "(('state \<times> 'input) \<Rightarrow> ('state \<times> 'output))"
 
-type_synonym ('state,'input,'output) mealy = "'state \<times> 'state set \<times> ('state,'input,'output) transition"
+type_synonym ('state,'input,'output) mealy = "'state \<times> ('state,'input,'output) transition"
 
 
 fun trans_star :: "('state,'input,'output) transition \<Rightarrow> 'state \<Rightarrow> 'input list \<Rightarrow> ('state \<times> 'output list)" where
@@ -32,20 +32,18 @@ lemma trans_star_output_state: "trans_star f q i = (trans_star_state f q i,trans
 
 definition mealy_eq :: "('state,'input,'output) mealy \<Rightarrow> 'state \<Rightarrow> ('state2,'input,'output) mealy \<Rightarrow> 'state2 \<Rightarrow> bool" where
 "mealy_eq a q b p \<equiv> (case (a,b) of
-    ((q_0,S,f),(p_0,S_2,g)) \<Rightarrow> (\<forall> is. trans_star_output f q is = trans_star_output g p is))"
+    ((q_0,f),(p_0,g)) \<Rightarrow> (\<forall> is. trans_star_output f q is = trans_star_output g p is))"
 
 abbreviation equal :: "('state,'input,'output) mealy \<Rightarrow> ('state2,'input,'output) mealy \<Rightarrow> bool" (infixr"\<approx>" 80) where
 "a \<approx> b \<equiv> (case (a,b) of
-    ((q_0,S,f),(p_0,S_2,g)) \<Rightarrow> mealy_eq a q_0 b p_0)"
+    ((q_0,f),(p_0,g)) \<Rightarrow> mealy_eq a q_0 b p_0)"
 
-definition mealy_invar :: "('state,'input,'output) mealy \<Rightarrow> bool" where
-"mealy_invar m = (case m of
-    (q_0,S,t) \<Rightarrow> q_0 \<in> S \<and> (\<forall> q q' i out. q \<in> S \<and> (t (q,i) = (q',out)) \<longrightarrow> q' \<in> S))"
+
 
 definition func_sim :: "('state \<Rightarrow> 'state2) \<Rightarrow> ('state,'input,'output) mealy \<Rightarrow>
     ('state2,'input,'output) mealy \<Rightarrow> bool" where
 "func_sim f a b \<equiv> (case (a,b) of
-    ((q_0,S,t),(p_0,S_2,g)) \<Rightarrow> (f q_0 = p_0) \<and> (\<forall> q q' i op. q \<in> S \<and> q' \<in> S \<and> t (q,i) = (q',op) \<longrightarrow>
+    ((q_0,t),(p_0,g)) \<Rightarrow> (f q_0 = p_0) \<and> (\<forall> q q' i op. t (q,i) = (q',op) \<longrightarrow>
       g (f q,i) = (f q',op)))"
 
 
@@ -169,10 +167,7 @@ qed
 
 
 lemma sim_subset:
-  assumes "mealy_invar (q_0,S,t)" and
-    "mealy_invar (p_0,S_2,g)" and
-    "func_sim f (q_0,S,t) (p_0,S_2,g)" and
-    "q \<in> S" and
+  assumes "func_sim f (q_0,t) (p_0,g)" and
     "trans_star_output t q i = ot"
   shows "trans_star_output g (f q) i = ot"
 using assms proof (induction i arbitrary: q ot)
@@ -182,10 +177,9 @@ using assms proof (induction i arbitrary: q ot)
 next
   case (Cons a i)
   have a: "\<forall> q' ot. t (q,a) = (q',ot) \<longrightarrow> g (f q,a) = (f q',ot)"
-    using assms(3) Cons(5) assms(1) assms(2)
-    unfolding mealy_invar_def func_sim_def
-    apply auto text \<open> TODO: Fix! \<close>
-    by metis
+    using assms Cons
+    unfolding func_sim_def
+    by simp     
   have "\<exists> q' out. t (q,a) = (q',out)"
     using Cons
     by auto
@@ -200,8 +194,7 @@ next
     ot: "ot = out # os"
     by auto
   then have "trans_star_output t q' i = os \<Longrightarrow> trans_star_output g (f q') i = os"
-    using Cons.IH Cons.prems(4) q assms(1) assms(2) assms(3)
-    unfolding mealy_invar_def
+    using Cons assms 
     by blast
   then have "trans_star_output t q (a # i) = (out # os) \<Longrightarrow> trans_star_output g (f q) (a # i) = (out # os)"
     using a q split_trans_star_output
@@ -214,32 +207,27 @@ qed
 
 definition apart :: "('state,'input,'output) mealy \<Rightarrow> 'state \<Rightarrow> 'state \<Rightarrow> bool" where
 "apart m q p \<equiv> (case m of
-    (q_0,Q,t) \<Rightarrow> \<exists> i x y. trans_star_output t p i = x \<and> trans_star_output t q i = y \<and> x \<noteq> y)"
+    (q_0,t) \<Rightarrow> \<exists> i x y. trans_star_output t p i = x \<and> trans_star_output t q i = y \<and> x \<noteq> y)"
 
 
 definition apart_with_witness :: "('state,'input,'output) mealy \<Rightarrow> 'state \<Rightarrow> 'state \<Rightarrow> 'input list \<Rightarrow> bool" where
 "apart_with_witness m q p is \<equiv> (case m of
-    (q_0,Q,t) \<Rightarrow> \<exists> x y. trans_star_output t p is = x \<and> trans_star_output t q is = y \<and> x \<noteq> y)"
+    (q_0,t) \<Rightarrow> \<exists> x y. trans_star_output t p is = x \<and> trans_star_output t q is = y \<and> x \<noteq> y)"
 
 
 lemma simulation_apart:
-  assumes "func_sim f (q_0,Q,t) (p_0,P,g)" and
-    "apart (q_0,Q,t) q q'" and
-    "q \<in> Q" and
-    "q' \<in> Q" and
-    "mealy_invar (p_0,P,g)" and
-    "mealy_invar (q_0,Q,t)"
-  shows "\<not> mealy_eq (p_0,P,g) (f q) (p_0,P,g) (f q')"
+  assumes "func_sim f (q_0,t) (p_0,g)" and
+    "apart (q_0,t) q q'" 
+  shows "\<not> mealy_eq (p_0,g) (f q) (p_0,g) (f q')"
 proof
-  assume "mealy_eq (p_0,P,g) (f q) (p_0,P,g) (f q')"
+  assume "mealy_eq (p_0,g) (f q) (p_0,g) (f q')"
   then have c: "(\<forall> is. trans_star_output g (f q) is = trans_star_output g (f q') is)"
     unfolding mealy_eq_def
     by fastforce
-
   have "\<exists> w x y. trans_star_output t q w = x \<and> trans_star_output t q' w = y \<and> x \<noteq> y"
     using assms (2)
     unfolding apart_def
-    apply auto text \<open> TODO: Fix! \<close>
+    apply simp
     by metis
   then obtain w x y where
     w: "trans_star_output t q w = x \<and> trans_star_output t q' w = y \<and> x \<noteq> y"
@@ -260,12 +248,11 @@ qed
 
 
 lemma weak_co_transitivity:
-  assumes "apart_with_witness (q_0,Q,t) r r' \<sigma>" and
-    "mealy_invar (q_0,Q,t)" and
+  assumes "apart_with_witness (q_0,t) r r' \<sigma>" and
     "trans_star_output t q \<sigma> = x"
-  shows "apart (q_0,Q,t) r q \<or> apart (q_0,Q,t) r' q"
+  shows "apart (q_0,t) r q \<or> apart (q_0,t) r' q"
 proof auto
-  show "\<not> apart (q_0,Q,t) r' q \<Longrightarrow> apart (q_0,Q,t) r q"
+  show "\<not> apart (q_0,t) r' q \<Longrightarrow> apart (q_0,t) r q"
     using assms
     unfolding apart_def apart_with_witness_def
     by blast
