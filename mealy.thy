@@ -27,7 +27,7 @@ fun trans_star_state :: "('state,'input,'output) transition \<Rightarrow> 'state
 
 lemma trans_star_output_state: "trans_star f q i = (trans_star_state f q i,trans_star_output f q i)"
   apply (induction i arbitrary: f q)
-  apply auto text \<open> TODO: Fix! \<close>
+  apply simp+ 
   by (smt (verit) case_prod_conv prod.case_distrib split_cong)
 
 definition mealy_eq :: "('state,'input,'output) mealy \<Rightarrow> 'state \<Rightarrow> ('state2,'input,'output) mealy \<Rightarrow> 'state2 \<Rightarrow> bool" where
@@ -65,6 +65,33 @@ lemma split_trans_star: "t (q,i) = (q',ot) \<Longrightarrow> trans_star t q' is 
 lemma split_trans_star_rev: "trans_star t q (i # is) = (st,ot # op) \<Longrightarrow>
     \<exists> q'. t (q,i) = (q',ot) \<and> trans_star t q' is = (st,op)"
   by (auto split: prod.splits option.splits)
+
+lemma trans_star_split_end:
+  assumes "t (st,i) = (st',op)" and
+    "trans_star t q acc = (st,out)"
+  shows "trans_star  t q (acc @ [i]) =  (st',out @ [op])"
+using assms proof (induction acc arbitrary: out q)
+  case Nil
+  then show ?case 
+    by simp
+next
+  case (Cons a acc)
+ 
+  obtain q' op' where q':"t (q,a) = (q', op')"
+    by fastforce
+   then have "trans_star t q (a # acc) = (let (qnew,x) = trans_star t q' acc in (qnew,op' # x)) "
+     by auto
+   then have "EX outnew. trans_star t q' acc = (st,outnew)" using Cons 
+     by (simp add: trans_star_output_state)
+   then obtain outnew where outnew:"trans_star t q' acc = (st,outnew)" 
+     by presburger
+   then have "trans_star t q' (acc @ [i]) = (st', outnew @ [op])" using Cons 
+     by blast
+   then have "trans_star t q (a#(acc@[i])) =  (st',op' # outnew@[op]) " using  q' 
+     by simp
+  then show ?case using q' outnew 
+    using Cons.prems(2) by auto
+qed
 
 
 lemma
@@ -214,6 +241,8 @@ definition apart_with_witness :: "('state,'input,'output) mealy \<Rightarrow> 's
 "apart_with_witness m q p is \<equiv> (case m of
     (q_0,t) \<Rightarrow> \<exists> x y. trans_star_output t p is = x \<and> trans_star_output t q is = y \<and> x \<noteq> y)"
 
+fun apart_machines :: "('state,'input,'output) transition \<Rightarrow> 'state \<Rightarrow> ('state2,'input,'output) transition \<Rightarrow> 'state2 \<Rightarrow> bool" where
+"apart_machines t q f p = (\<exists> i. trans_star_output t q i \<noteq> trans_star_output f p i)"
 
 lemma simulation_apart:
   assumes "func_sim f (q_0,t) (p_0,g)" and
