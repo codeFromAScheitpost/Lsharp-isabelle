@@ -1831,7 +1831,7 @@ qed
 
 lemma max_size_S:
   assumes "invar (m :: (('state,'input,'output) mealy)) (S,F,T)"
-  shows "card S \<le> card (UNIV :: 'state set)"
+  shows "card S \<le> card Q"
 proof -
   have "\<exists> f. func_sim m T f"
     using assms
@@ -1846,7 +1846,7 @@ proof -
     using assms invars
     by blast
   then show ?thesis
-    using max_size_S_aux a b c
+    using max_size_S_aux a b c univQ
     by blast
 qed
 
@@ -2686,6 +2686,40 @@ next
 qed
 
 
+lemma norm_max_no_step:
+  assumes "norm_set (S,F,T) \<ge> (card Q * (card Q + 1)) div 2 + (card Q * card I) + (card Q * (card Q * card I))" and
+    "invar m (S,F,T)"
+  shows "\<nexists> S' F' T'. algo_step m (S,F,T) (S',F',T')"
+proof (rule ccontr)
+  assume "\<not> (\<nexists> S' F' T'. algo_step m (S,F,T) (S',F',T'))"
+  then obtain S' F' T' where
+    S': "algo_step m (S,F,T) (S',F',T')"
+    by fast
+  then have a: "norm_set (S',F',T') > (card Q * (card Q + 1)) div 2 + (card Q * card I) + (card Q * (card Q * card I))"
+    using Mealy.algo_step_increases_norm Mealy_axioms assms dual_order.strict_trans2
+    by blast
+  have inv: "invar m (S',F',T')"
+    using S' algo_step_keeps_invar assms(2)
+    by auto
+  then have "norm_set (S',F',T') \<le> (card S' * (card S' + 1)) div 2 + (card S' * card I) + (card S' * (card S' * card I))"
+    using norm_max invars(3)
+    by blast
+  then have "(card S' * (card S' + 1)) div 2 + (card S' * card I) + (card S' * (card S' * card I)) >
+      (card Q * (card Q + 1)) div 2 + (card Q * card I) + (card Q * (card Q * card I))"
+    using a
+    by linarith
+  then have gt: "card S' > card Q"
+    using univQ inv
+    by (metis add_mono_thms_linordered_semiring(1) add_mono_thms_linordered_semiring(3) div_le_mono leD leI mult_le_cancel2 mult_le_mono)
+  have "card S' \<le> card Q"
+    using inv max_size_S
+    by blast
+  then show False
+    using gt
+    by linarith
+qed
+
+
 lemma no_step_rule1:
   assumes "\<not> (\<exists> S' F' T'. algo_step m (S,F,T) (S',F',T'))"
   shows "\<not> (\<exists> f \<in> F. \<forall> s \<in> S. apart_text T s f)"
@@ -2805,12 +2839,13 @@ proof (rule ccontr)
     by simp
 qed
 
+
 lemma no_step_exists_hypothesis:
   assumes "invar m (S,F,T)" and
-     "\<not> (\<exists> S' F' T'. algo_step m (S,F,T) (S',F',T'))"
+    "\<not> (\<exists> S' F' T'. algo_step m (S,F,T) (S',F',T'))"
   shows "\<exists> t. hypothesis (S,F,T) t"
-  using assms  no_step_rule1 no_step_rule2 exists_hypothesis 
-  by auto
+    using assms no_step_rule1 no_step_rule2 exists_hypothesis
+    by auto
 
 
 lemma not_apart_machines_snd_f:
