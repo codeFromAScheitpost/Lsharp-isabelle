@@ -156,12 +156,14 @@ lemma invars:
   assumes "invar m (S,F,T)"
   shows "\<forall> e. \<not> (e \<in> S \<and> e \<in> F)" and
     "\<forall> e \<in> S. out_star T e \<noteq> None" and
-    "finite S" "finite F" and
+    "finite S" and
+    "finite F" and
     "sapart (S,F,T)" and
     "\<forall> i. out_star T i \<noteq> None \<longrightarrow> out_star T i = Some (output_query m i)" and
     "\<forall> f \<in> F. in_F (S,F,T) f" and
     "\<forall> f. in_F (S,F,T) f \<longrightarrow> f \<in> F" and
-    "[] \<in> S" "(\<forall> s \<in> S. s = [] \<or> (\<exists> s2 \<in> S. \<exists> i. s2 @ [i] = s))"
+    "[] \<in> S" and
+    "\<forall> s \<in> S. s = [] \<or> (\<exists> s2 \<in> S. \<exists> i. s2 @ [i] = s)"
       using assms
       unfolding invar_def
       by blast +
@@ -170,12 +172,14 @@ lemma invars:
 lemma is_invar:
   assumes "\<forall> e. \<not> (e \<in> S \<and> e \<in> F)" and
     "\<forall> e \<in> S. out_star T e \<noteq> None" and
-    "finite S" "finite F" and
+    "finite S" and
+    "finite F" and
     "sapart (S,F,T)" and
     "\<forall> i. out_star T i \<noteq> None \<longrightarrow> out_star T i = Some (output_query m i)" and
     "\<forall> f \<in> F. in_F (S,F,T) f" and
     "\<forall> f. in_F (S,F,T) f \<longrightarrow> f \<in> F" and
-    "[] \<in> S" "(\<forall> s \<in> S. s = [] \<or> (\<exists> s2 \<in> S. \<exists> i. s2 @ [i] = s))"
+    "[] \<in> S" and
+    "\<forall> s \<in> S. s = [] \<or> (\<exists> s2 \<in> S. \<exists> i. s2 @ [i] = s)"
   shows "invar m (S,F,T)"
     using assms
     unfolding invar_def

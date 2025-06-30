@@ -88,8 +88,8 @@ definition invar :: "('state,('input :: finite),'output) mealy \<Rightarrow> (('
     [] \<in> S \<and> (\<forall> s \<in> S. s = [] \<or> (\<exists> s2 \<in> S. \<exists> i. s2 @ [i] = s)))"
 
 
-fun transfunc :: "(('input :: finite),'output) state \<Rightarrow> ('input list,'input,'output) transition \<Rightarrow> bool" where
-"transfunc (S,F,T) t =
+fun hypothesis :: "(('input :: finite),'output) state \<Rightarrow> ('input list,'input,'output) transition \<Rightarrow> bool" where
+"hypothesis (S,F,T) t =
     (\<forall> s \<in> S. \<forall> i. \<exists> tran op n out. (otree_star T s = Some (Node tran,op)) \<and> (tran i = Some (n,out)) \<and>
       (if (s @ [i]) \<in> S
         then t (s,i) = (s @ [i],out)
@@ -521,7 +521,7 @@ proof(rule ccontr)
 qed
 
 
-section "transfunc"
+section "hypothesis"
 
 
 lemma trans_ex_aux:
@@ -536,21 +536,15 @@ lemma trans_ex_aux:
     by auto
 
 
-lemma "a \<longrightarrow> b \<Longrightarrow> b \<longrightarrow> c \<Longrightarrow> a \<longrightarrow> c"
-  by blast
-
-
-lemma exists_transfunc:
+lemma exists_hypothesis:
   assumes "invar m (S,F,T)" and
     "\<not> (\<exists> f \<in> F. \<forall> s \<in> S. apart_text T s f)" and
     "\<not> (\<exists> s \<in> S. EX i. (out_star T (s @ [i]) = None))"
-  shows "\<exists> t. transfunc (S,F,T) t"
+  shows "\<exists> t. hypothesis (S,F,T) t"
 proof -
-
   have inf: "\<forall> f. in_F (S,F,T) f \<longrightarrow> f \<in> F"
     using assms(1) invars
     by presburger
-
   have notning_none: "\<forall> s \<in> S. \<forall> i. out_star T (s @ [i]) \<noteq> None"
     using assms
     by meson
@@ -588,12 +582,9 @@ proof -
   have exists: "\<forall> s \<in> S. \<forall> i. \<exists> node out. otree_star T s = Some (Node node,out) \<and> node i \<noteq> None"
     using otree_star_notnoe_split nothing_none_otree
     by blast
-
   obtain none where
     "none \<in> (UNIV :: 'output set)"
     by simp
-
-
   have "\<forall> s \<in> S. \<forall> i. \<exists> node outs out n. otree_star T s = Some (Node node,outs) \<and> node i = Some (n,out)"
     using exists
     by fast
@@ -605,7 +596,6 @@ proof -
           then (s @ [i],out)
           else (f (s @ [i]),out)))))"
     by simp
-
   then obtain t where
     thelp: "t = (\<lambda> (s,i). (case otree_star T s of
         None \<Rightarrow> ([],none) |
@@ -623,16 +613,15 @@ proof -
         else \<exists> y \<in> S. \<not> apart_text T y (s @ [i]) \<and> t (s,i) = (y,out))"
     using f fone
     by fastforce
-
-  then have "transfunc (S,F,T) t"
+  then have "hypothesis (S,F,T) t"
     by simp
   then show ?thesis
     by blast
 qed
 
 
-lemma transfunc_split_in_S:
-  assumes "transfunc (S,F,T) t" and
+lemma hypothesis_split_in_S:
+  assumes "hypothesis (S,F,T) t" and
     "s \<in> S" and
     "otree_star T s = Some (Node tran,op)" and
     "tran i = Some (n,out)" and
@@ -653,8 +642,8 @@ proof -
 qed
 
 
-lemma transfunc_split_notin_S:
-  assumes "transfunc (S,F,T) t" and
+lemma hypothesis_split_notin_S:
+  assumes "hypothesis (S,F,T) t" and
     "s \<in> S" and
     "otree_star T s = Some (Node tran,op)" and
     "tran i = Some (n,out)" and
@@ -2697,10 +2686,7 @@ next
 qed
 
 
-inductive_cases algo_cases [elim!] : "algo_step m (S,F,T) s'"
-
-
-lemma not_applicebale_rule1:
+lemma no_step_rule1:
   assumes "\<not> (\<exists> S' F' T'. algo_step m (S,F,T) (S',F',T'))"
   shows "\<not> (\<exists> f \<in> F. \<forall> s \<in> S. apart_text T s f)"
 proof (rule ccontr)
@@ -2717,7 +2703,7 @@ proof (rule ccontr)
 qed
 
 
-lemma not_applicebale_rule2:
+lemma no_step_rule2:
   assumes "\<not> (\<exists> S' F' T'. algo_step m (S,F,T) (S',F',T'))"
   shows "\<not> (\<exists> s i. s \<in> S \<and> (out_star T (s @ [i]) = None))"
 proof (rule ccontr)
@@ -2737,7 +2723,7 @@ proof (rule ccontr)
 qed
 
 
-lemma not_applicebale_rule3:
+lemma no_step_rule3:
   assumes "\<not> (\<exists> S' F' T'. algo_step m (S,F,T) (S',F',T'))" and
     "invar m (S,F,T)"
   shows "\<not> (\<exists> s1 s2 f. s1 \<in> S \<and> s2 \<in> S \<and> f \<in> F \<and> s1 \<noteq> s2 \<and>
@@ -2774,7 +2760,7 @@ proof (rule ccontr)
 qed
 
 
-lemma not_applicebale_rule4:
+lemma no_step_rule4:
   assumes "\<not> (\<exists> S' F' T'. algo_step m (S,F,T) (S',F',T'))" and
     "invar m (S,F,T)" and
     "m = (q_0mealy,mealytrans)"
@@ -2797,11 +2783,11 @@ proof (rule ccontr)
         drop (length fs) (trans_star_output mealytrans q_0mealy (fs @ inp))"
     by blast
   have si_not_none: "\<forall> s1 \<in> S. \<forall> i. out_star T (s1 @ [i]) \<noteq> None"
-    using not_applicebale_rule2 assms
+    using no_step_rule2 assms
     by metis
   have "~ (\<exists> f \<in> F. isolated T S f)"
     apply (simp only: isolated.simps)
-    using not_applicebale_rule1 assms
+    using no_step_rule1 assms
     by blast
   then have notiso: "\<forall> f \<in> F. \<not> isolated T S f"
     by blast
@@ -2818,6 +2804,13 @@ proof (rule ccontr)
     using assms
     by simp
 qed
+
+lemma no_step_exists_hypothesis:
+  assumes "invar m (S,F,T)" and
+     "\<not> (\<exists> S' F' T'. algo_step m (S,F,T) (S',F',T'))"
+  shows "\<exists> t. hypothesis (S,F,T) t"
+  using assms  no_step_rule1 no_step_rule2 exists_hypothesis 
+  by auto
 
 
 lemma not_apart_machines_snd_f:
@@ -2856,10 +2849,10 @@ proof (rule ccontr)
 qed
 
 
-lemma transfunc_no_step_output_same:
+lemma hypothesis_no_step_output_same:
   assumes "invar m (S,F,T)" and
     "\<not> (\<exists> S' F' T'. algo_step m (S,F,T) (S',F',T'))" and
-    "transfunc (S,F,T) t" and
+    "hypothesis (S,F,T) t" and
     "m = (q_0,f)" and
     "\<not> (apart_machines f (trans_star_state f q_0 p) f q)" and
     "p \<in> S"
@@ -2871,22 +2864,22 @@ using assms proof (induction inp arbitrary: q p)
 next
   case (Cons a inp)
   have not_rule1: "\<not> (\<exists> f \<in> F. \<forall> s \<in> S. apart_text T s f)"
-    using not_applicebale_rule1 assms
+    using no_step_rule1 assms
     by blast
   have not_rule2: "\<not> (\<exists> s i. s \<in> S \<and> (out_star T (s @ [i]) = None))"
-    using not_applicebale_rule2 assms
+    using no_step_rule2 assms
     by blast
   have not_rule3: "\<not> (\<exists> s1 s2 f. s1 \<in> S \<and> s2 \<in> S \<and> f \<in> F \<and> s1 \<noteq> s2 \<and>
       \<not> apart_text T f s1 \<and>
       \<not> apart_text T f s2)"
-    using not_applicebale_rule3 assms
+    using no_step_rule3 assms
     by blast
   then have not_rule4: "\<not> (\<exists> s fs inp. fs \<in> F \<and>
       s \<in> S \<and>
       \<not> apart_text T s fs \<and>
       drop (length s) (trans_star_output f (q_0) (s @ inp)) \<noteq>
       drop (length fs) (trans_star_output f q_0 (fs @ inp)))"
-    using not_applicebale_rule4 assms
+    using no_step_rule4 assms
     by blast
   have "otree_star T p \<noteq> None"
     using assms
@@ -2968,7 +2961,7 @@ next
     case True
     have "t (p,a) = (p @ [a],out)"
       using Cons(4) nout tran Cons(7) True
-      by (simp add: transfunc_split_in_S)
+      by (simp add: hypothesis_split_in_S)
     then have aux: "trans_star_output t p (a # inp) = (out # trans_star_output t (p @ [a]) inp)"
       by simp
 
@@ -2992,9 +2985,9 @@ next
     obtain p' where
       p': "t (p,a) = (p',out)"
       using False
-      by (meson Cons.prems(3) Cons.prems(6) nout tran transfunc_split_notin_S)
+      by (meson Cons.prems(3) Cons.prems(6) nout tran hypothesis_split_notin_S)
     then have notapart_p'pa: "\<not> apart_text T p' (p @ [a]) \<and> p' \<in> S"
-      using transfunc_split_notin_S[of S F T t p tran op a n out] assms(3,6)
+      using hypothesis_split_notin_S[of S F T t p tran op a n out] assms(3,6)
       by (simp add: Cons.prems(6) False nout tran)
     have "\<not> apart_machines f (trans_star_state f q_0 (p')) f q'" proof (rule ccontr)
       assume assapart: "\<not> \<not> apart_machines f (trans_star_state f q_0 (p')) f q'"
@@ -3047,10 +3040,10 @@ next
 qed
 
 
-theorem algo_step_not_applicebale_mealy_equal:
+theorem no_step_mealy_equal:
   assumes "invar m (S,F,T)" and
     "\<not> (\<exists> S' F' T'. algo_step m (S,F,T) (S',F',T'))" and
-    "transfunc (S,F,T) t"
+    "hypothesis (S,F,T) t"
   shows "m \<approx> ([],t)"
 proof (rule ccontr)
   assume ass: "~ (m \<approx> ([],t))"
@@ -3070,7 +3063,7 @@ proof (rule ccontr)
   have three: "\<not> (apart_machines f (trans_star_state f q_0 []) f q_0)"
     by force
   have "trans_star_output f q_0 inp = trans_star_output t [] inp"
-    using transfunc_no_step_output_same[of S F T t q_0 f "[]" q_0 inp] one two three assms
+    using hypothesis_no_step_output_same[of S F T t q_0 f "[]" q_0 inp] one two three assms
     by blast
   then show False
     using neq
