@@ -1,9 +1,7 @@
-theory observation_tree
-  imports "./mealy"
+theory Lsharp
+  imports "./MealyMachine"
 begin
 sledgehammer_params [provers = cvc4 verit z3 spass vampire zipperposition]
-
-
 
 
 text \<open>this Theory proofs the correctness and runtime of a modified version of the L# Algorythm proposed by
@@ -128,10 +126,10 @@ locale Mealy =
   assumes
   univI: "I = UNIV" and
   univQ: "Q = UNIV" and
-  difference_query_def: "(\<forall> x q_0 f s fs.(difference_query (q_0,f) s fs = Some x) \<longrightarrow> (drop (length s) (trans_star_output f q_0 (s @ x)) \<noteq>
+  difference_query_def: "\<forall> x q_0 f s fs.(difference_query (q_0,f) s fs = Some x) \<longrightarrow> (drop (length s) (trans_star_output f q_0 (s @ x)) \<noteq>
+      drop (length fs) (trans_star_output f q_0 (fs @ x)))" and
+  difference_query_def_none: "\<forall> q_0 f s fs.(difference_query (q_0,f) s fs = None) \<longleftrightarrow> (\<nexists> x.(drop (length s) (trans_star_output f q_0 (s @ x)) \<noteq>
       drop (length fs) (trans_star_output f q_0 (fs @ x))))" and
-  difference_query_def_none: "(\<forall> q_0 f s fs.(difference_query (q_0,f) s fs = None) \<longleftrightarrow> (\<nexists> x.(drop (length s) (trans_star_output f q_0 (s @ x)) \<noteq>
-      drop (length fs) (trans_star_output f q_0 (fs @ x)))))" and
   updateF_def: "\<forall> S F T. set (updateF T S F) = {fnew. in_F (set S,set F,T) fnew}" and
   find1_def: "\<forall> x S F T. (find1 T S F = Some x) \<longrightarrow> (x \<in> set F \<and> (\<forall> s \<in> set S. apart T s x))" and
   find1_def_none: "\<forall> S F T. (find1 T S F = None) \<longleftrightarrow> (\<nexists> x. x \<in> set F \<and> (\<forall> s \<in> set S. apart T s x))" and
@@ -1752,7 +1750,7 @@ section \<open>norm\<close>
 
 
 lemma norm_max:
-  assumes "invar m (S,F,T)" 
+  assumes "invar m (S,F,T)"
   shows "norm (S,F,T) \<le>
       (card S * (card S + 1)) div 2 + (card S * card I) + (card S * (card S * card I))"
   text \<open>this shows that the norm is always smaller as some term that only changes though the size of \<open>S\<close>\<close>
@@ -1798,7 +1796,7 @@ proof -
   have subs_trd: "{(q,p). q \<in> S \<and> p \<in> F \<and> apart T q p} \<subseteq> (S \<times> F)"
     by blast
   have "finite (S \<times> F)"
-    using assms  invars(3,4) try0
+    using assms invars(3,4)
     by blast
   then have "norm_trd (S,F,T) \<le> card (S \<times> F)"
     using subs_trd card_mono
@@ -1922,17 +1920,20 @@ qed
 
 
 theorem max_norm_total:
-  assumes"invar m (S,F,T)"
-  shows " norm (S,F,T) \<le>(card Q * (card Q + 1)) div 2 + (card Q * card I) + (card Q * (card Q * card I))"
+  assumes "invar m (S,F,T)"
+  shows "norm (S,F,T) \<le> (card Q * (card Q + 1)) div 2 + (card Q * card I) + (card Q * (card Q * card I))"
   text  \<open>this theorem is equivalent to theorem 3.9 in the L# Paper.\<close>
 proof (rule ccontr)
-  assume "\<not> norm (S,F,T) \<le>(card Q * (card Q + 1)) div 2 + (card Q * card I) + (card Q * (card Q * card I)) "
-  then have "(card S * (card S + 1) div 2 + card S * card I + card S * (card S * card I))>
-    (card Q * (card Q + 1)) div 2 + (card Q * card I) + (card Q * (card Q * card I))" using norm_max assms 
+  assume "\<not> norm (S,F,T) \<le> (card Q * (card Q + 1)) div 2 + (card Q * card I) + (card Q * (card Q * card I))"
+  then have "(card S * (card S + 1) div 2 + card S * card I + card S * (card S * card I)) >
+      (card Q * (card Q + 1)) div 2 + (card Q * card I) + (card Q * (card Q * card I))"
+    using norm_max assms
     by force
-  then have "card S > card Q" using assms invars univQ 
+  then have "card S > card Q"
+    using assms invars univQ
     by (metis add_mono_thms_linordered_semiring(1) add_mono_thms_linordered_semiring(3) div_le_mono mult_le_mono mult_le_mono1 verit_comp_simplify1(3))
-  then show False using max_size_S assms 
+  then show False
+    using max_size_S assms
     by fastforce
 qed
 
@@ -3288,10 +3289,10 @@ lemma any_precon_algo_step:
 lemma nex_precondition_nex_algostep:
   assumes "\<nexists> x. x \<in> set F \<and> (\<forall> s \<in> set S. apart T s x)" and
     "\<nexists> x. \<exists> s \<in> set S. \<exists> i. x = s @ [i] \<and> out_star T x = None" and
-    "(\<nexists> x. \<exists> s1 \<in> set S. \<exists> s2 \<in> set S. \<exists> f \<in> set F. \<exists> w. x = f @ w \<and> s1 \<noteq> s2 \<and>
+    "\<nexists> x. \<exists> s1 \<in> set S. \<exists> s2 \<in> set S. \<exists> f \<in> set F. \<exists> w. x = f @ w \<and> s1 \<noteq> s2 \<and>
         \<not> apart T f s1 \<and>
         \<not> apart T f s2 \<and>
-        apart_witness T s1 s2 w)" and
+        apart_witness T s1 s2 w" and
     "\<nexists> x y. \<exists> fs \<in> set F. \<exists> s \<in> set S. \<exists> inp.
         \<not> apart T s fs \<and>
         difference_query m s fs = Some inp \<and> x = s @ inp \<and> y = fs @ inp"
@@ -3324,7 +3325,6 @@ lemma find_none_no_step:
   shows "\<nexists> S' F' T'. algo_step m (set S,set F,T) (S',F',T')"
     using nex_precondition_nex_algostep assms find1_def_none find2_def_none find3_def_none find4_def_none
     by simp
-
 
 
 function lsharp :: "('state,'input,'output) mealy \<Rightarrow> ('input,'output) state_list \<Rightarrow> ('input,'output) state_list" where
