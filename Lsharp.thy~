@@ -1,5 +1,5 @@
 theory Lsharp
-  imports "./mealy"
+  imports "./MealyMachine"
 begin
 sledgehammer_params [provers = cvc4 verit z3 spass vampire zipperposition]
 
@@ -1903,7 +1903,7 @@ lemma max_size_S:
 proof -
   have "\<exists> f. func_sim m T f"
     using assms
-    by (smt (verit,del_insts) func_sim_of_output_query invars not_None_eq option.inject)
+    using func_sim_of_output_query invars(6) by fastforce
   then obtain f where
     a: "func_sim m T f"
     by auto
@@ -1930,8 +1930,8 @@ proof (rule ccontr)
     using norm_max assms
     by force
   then have "card S > card Q"
-    using assms invars univQ
-    by (metis add_mono_thms_linordered_semiring(1) add_mono_thms_linordered_semiring(3) div_le_mono mult_le_mono mult_le_mono1 verit_comp_simplify1(3))
+    using assms
+    by (metis add_le_cancel_right add_mono div_le_mono linorder_not_le mult_le_mono mult_le_mono1)
   then show False
     using max_size_S assms
     by fastforce
@@ -2767,28 +2767,17 @@ proof (rule ccontr)
   then obtain S' F' T' where
     S': "algo_step m (S,F,T) (S',F',T')"
     by fast
-  then have a: "norm (S',F',T') > (card Q * (card Q + 1)) div 2 + (card Q * card I) + (card Q * (card Q * card I))"
-    using Mealy.algo_step_increases_norm Mealy_axioms assms dual_order.strict_trans2
-    by (smt (verit))
-  have inv: "invar m (S',F',T')"
-    using S' algo_step_keeps_invar assms(2)
-    by auto
+  have a: "norm (S',F',T') > (card Q * (card Q + 1)) div 2 + (card Q * card I) + (card Q * (card Q * card I))"
+    using algo_step_increases_norm[OF S' assms(2)] assms(1) by linarith
+  have inv: "invar m (S',F',T')" by(rule algo_step_keeps_invar[OF S' assms(2)])
   then have "norm (S',F',T') \<le> (card S' * (card S' + 1)) div 2 + (card S' * card I) + (card S' * (card S' * card I))"
-    using norm_max invars(3)
-    by blast
+    by(rule norm_max)
   then have "(card S' * (card S' + 1)) div 2 + (card S' * card I) + (card S' * (card S' * card I)) >
       (card Q * (card Q + 1)) div 2 + (card Q * card I) + (card Q * (card Q * card I))"
     using a
     by linarith
-  then have gt: "card S' > card Q"
-    using univQ inv
-    by (metis add_mono_thms_linordered_semiring(1) add_mono_thms_linordered_semiring(3) div_le_mono leD leI mult_le_cancel2 mult_le_mono)
-  have "card S' \<le> card Q"
-    using inv max_size_S
-    by blast
   then show False
-    using gt
-    by linarith
+    using a max_norm_total[OF inv] by linarith
 qed
 
 
@@ -3151,6 +3140,26 @@ proof (rule ccontr)
     using neq
     by blast
 qed
+
+abbreviation algo_steps where "algo_steps \<equiv> (algo_step m)^**"
+
+lemma invar_if_algo_steps: "algo_steps ({[]},{},Node Map.empty) (S,F,T) \<Longrightarrow> invar m (S,F,T)"
+proof(induction rule: rtranclp_induct)
+  case base
+  then show ?case
+    by (simp add: empty_is_invar)
+next
+  case (step)
+  then show ?case
+    by (metis algo_step_keeps_invar surj_pair)
+qed
+
+corollary no_step_mealy_equal2:
+  assumes "algo_steps ({[]},{},Node Map.empty) (S,F,T)"
+  and "\<not> (\<exists> S' F' T'. algo_step m (S,F,T) (S',F',T'))"
+  shows "\<exists>t. hypothesis (S,F,T) t \<and> m \<approx> ([],t)"
+using no_step_mealy_equal no_step_exists_hypothesis invar_if_algo_steps assms
+by metis
 
 
 section \<open>function\<close>

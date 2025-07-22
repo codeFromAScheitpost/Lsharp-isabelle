@@ -3142,6 +3142,7 @@ proof (rule ccontr)
 qed
 
 abbreviation algo_steps where "algo_steps \<equiv> (algo_step m)^**"
+notation algo_steps (infix "\<Rightarrow>*" 45)
 
 lemma invar_if_algo_steps: "algo_steps ({[]},{},Node Map.empty) (S,F,T) \<Longrightarrow> invar m (S,F,T)"
 proof(induction rule: rtranclp_induct)
@@ -3160,6 +3161,8 @@ corollary no_step_mealy_equal2:
   shows "\<exists>t. hypothesis (S,F,T) t \<and> m \<approx> ([],t)"
 using no_step_mealy_equal no_step_exists_hypothesis invar_if_algo_steps assms
 by metis
+
+(* further possible beatification: replace triples (S,F,T) by single variables *)
 
 
 section \<open>function\<close>
