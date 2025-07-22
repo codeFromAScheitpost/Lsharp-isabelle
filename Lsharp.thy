@@ -3141,6 +3141,26 @@ proof (rule ccontr)
     by blast
 qed
 
+abbreviation algo_steps where "algo_steps \<equiv> (algo_step m)^**"
+
+lemma invar_if_algo_steps: "algo_steps ({[]},{},Node Map.empty) (S,F,T) \<Longrightarrow> invar m (S,F,T)"
+proof(induction rule: rtranclp_induct)
+  case base
+  then show ?case
+    by (simp add: empty_is_invar)
+next
+  case (step)
+  then show ?case
+    by (metis algo_step_keeps_invar surj_pair)
+qed
+
+corollary no_step_mealy_equal2:
+  assumes "algo_steps ({[]},{},Node Map.empty) (S,F,T)"
+  and "\<not> (\<exists> S' F' T'. algo_step m (S,F,T) (S',F',T'))"
+  shows "\<exists>t. hypothesis (S,F,T) t \<and> m \<approx> ([],t)"
+using no_step_mealy_equal no_step_exists_hypothesis invar_if_algo_steps assms
+by metis
+
 
 section \<open>function\<close>
 
