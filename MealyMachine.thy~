@@ -1,4 +1,4 @@
-theory mealy
+theory MealyMachine
   imports Main
 begin
 

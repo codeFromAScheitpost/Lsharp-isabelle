@@ -9,3 +9,7 @@ observation_treeClean.thy
 algorythmClean.thy
 mealyClean.thy~
 observation_treeClean.thy~
+MealyMachineClean.thy
+MealyMachineClean.thy~
+LsharpClean.thy
+LsharpClean.thy~
