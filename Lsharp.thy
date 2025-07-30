@@ -3162,7 +3162,7 @@ corollary no_step_mealy_equal2:
 using no_step_mealy_equal no_step_exists_hypothesis invar_if_algo_steps assms
 by metis
 
-(* further possible beatification: replace triples (S,F,T) by single variables *)
+(* further possible beautification: replace triples (S,F,T) by single variables *)
 
 
 section \<open>function\<close>
