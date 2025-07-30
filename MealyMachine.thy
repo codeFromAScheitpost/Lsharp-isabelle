@@ -276,16 +276,7 @@ proof
 qed
 
 
-lemma weak_co_transitivity:
-  assumes "apart_with_witness (q_0,t) r r' \<sigma>" and
-    "trans_star_output t q \<sigma> = x"
-  shows "apart (q_0,t) r q \<or> apart (q_0,t) r' q"
-proof auto
-  show "\<not> apart (q_0,t) r' q \<Longrightarrow> apart (q_0,t) r q"
-    using assms
-    unfolding apart_def apart_with_witness_def
-    by blast
-qed
+
 
 
 end
