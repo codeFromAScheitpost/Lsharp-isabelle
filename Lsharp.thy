@@ -1,7 +1,7 @@
 theory Lsharp
-  imports "./MealyMachine"
+  imports "./MealyMachine" 
 begin
-sledgehammer_params [provers = cvc4 verit z3 spass vampire zipperposition]
+sledgehammer_params [provers = cvc5 verit z3 spass vampire zipperposition]
 
 
 text \<open>this Theory proofs the correctness and runtime of a modified version of the L# algorithm proposed by
@@ -99,7 +99,7 @@ fun norm_trd :: "(('input :: finite),'output) state \<Rightarrow> nat" where
 
 fun norm :: "(('input :: finite),'output) state \<Rightarrow> nat" where
 "norm st = norm_fst st + norm_snd st + norm_trd st"
-text \<open>the norm is the same proposed by Vandraager et al.\<close>
+text \<open>the norm is the same proposed in the original L# paper.\<close>
 
 locale Mealy =
   fixes m :: "('state :: finite,'input :: finite,'output) mealy" and
@@ -244,6 +244,10 @@ proof -
 qed
 
 
+lemma invar_substring_in_s: "\<forall> s \<in> S. s = [] \<or> (\<exists> s2 \<in> S. \<exists> i. s2 @ [i] = s) \<Longrightarrow> s @ a \<in> S \<Longrightarrow> s \<in> S"
+  by (induction a rule: rev_induct) auto
+
+
 section \<open>frontier\<close>
 
 
@@ -314,6 +318,13 @@ next
       by auto
   qed
 qed
+
+
+lemma otree_eq_out_exhaust: "case otree_star T i of
+    None \<Rightarrow> out_star T i = None |
+    Some (n,out) \<Rightarrow> out_star T i = Some out"
+  using otree_eq_out
+  by (metis obs_tree.exhaust)
 
 
 lemma out_eq_otree: "\<exists> node. (case out_star (Node r) i of
@@ -3113,6 +3124,226 @@ next
   qed
 qed
 
+fun find_not_apart :: "('input,'output) obs_tree \<Rightarrow> 'input list \<Rightarrow> 'input list list \<Rightarrow> 'input list" where
+"find_not_apart T f [] = []" |
+"find_not_apart T f (s # ss) = (if \<not> apart T f s
+    then s
+    else find_not_apart T f ss)"
+
+
+lemma find_not_apart_not_apart: "\<exists> s \<in> set S. \<not> apart T f s \<Longrightarrow> \<not> apart T f (find_not_apart T f S)"
+  by (induction S) auto
+
+
+fun hypo :: "'input list list \<Rightarrow> ('input,'output) obs_tree \<Rightarrow> 'input list \<Rightarrow> (('input list \<times> 'input) \<Rightarrow> ('input list \<times> 'output))" where
+"hypo S T acc ([],i) = (case out_star T (acc @ [i]) of
+    Some out \<Rightarrow> (if acc @ [i] \<in> set S
+      then (acc @ [i],last out)
+      else ((find_not_apart T (acc @ [i]) S),last out)))" |
+"hypo S T acc (n # nlist,i) = (if (acc @ [n]) \<in> set S
+    then hypo S T (acc @ [n]) (nlist,i)
+    else hypo S T (find_not_apart T (acc @ [n]) S) (nlist,i))"
+
+(* decribe a function that calculates the hypothesis *)
+
+
+lemma find_nap_in_s_and_apart: "\<not> (\<forall> s \<in> set S. apart T s f) \<Longrightarrow> find_not_apart T f S \<in> set S \<and> \<not> apart T f (find_not_apart T f S)"
+proof (standard,goal_cases)
+  case 1
+  then show ?case
+    by (induction S) auto
+next
+  case 2
+  then show ?case
+    using find_not_apart_not_apart
+    by (metis apart.simps)
+qed
+
+
+lemma hypo_works_input_in_S:
+  assumes "invar (set S,F,T)" and
+    "otree_star T (acc @ s) = (Some (Node tran,op))" and
+    "tran i = Some (n,out)" and
+    "acc @ s @ [i] \<in> set S"
+  shows "hypo S T acc (s,i) = (acc @ s @ [i],out)"
+using assms proof (induction s arbitrary: acc)
+  case Nil
+  have "otree_star T (acc @ [i]) = Some (n,op @ [out])"
+    using Nil
+    by (metis append.right_neutral obs_tree.exhaust otree_star_split)
+  then have "out_star T (acc @ [i]) = Some (op @ [out])"
+    using otree_eq_out_exhaust[of T "acc @ [i]"]
+    by simp
+  then show ?case
+    using Nil.prems(4)
+    by auto
+next
+  case (Cons a s)
+  then have "acc @ [a] @ s @ [i] \<in> set S"
+    by simp
+  then have "acc @ [a] \<in> set S"
+    using Cons(2) invars(9) invar_substring_in_s[of "set S" "acc @ [a]" "s @ [i]"]
+    by simp
+  then have hypo_step: "hypo S T acc (a # s,i) = hypo S T (acc @ [a]) (s,i)"
+    by auto
+  then have "hypo S T (acc @ [a]) (s,i) = (acc @ [a] @ s @ [i],out)"
+    using Cons
+    by fastforce
+  then show ?case
+    using hypo_step
+    by fastforce
+qed
+
+
+lemma hypo_works_input_notin_S:
+  assumes "invar (set S,F,T)" and
+    "otree_star T (acc @ s) = (Some (Node tran,op))" and
+    "tran i = Some (n,out)" and
+    "acc @ s \<in> set S" and
+    "acc @ s @ [i] \<notin> set S" and
+    "\<exists> z \<in> set S. \<not> apart T (acc @ s @ [i]) z" and
+    "hypo S T acc (s,i) = (y,outh)"
+  shows "\<not> apart T y (acc @ s @ [i]) \<and> outh = out \<and> y \<in> set S"
+using assms proof(induction s arbitrary: acc)
+  case Nil
+  have "otree_star T (acc @ [i]) = Some (n,op @ [out])"
+    using Nil
+    by (metis append.right_neutral obs_tree.exhaust otree_star_split)
+  then have "out_star T (acc @ [i]) = Some (op @ [out])"
+    using otree_eq_out_exhaust[of T "acc @ [i]"]
+    by auto
+  then have h: "hypo S T acc ([],i) = (find_not_apart T (acc @ [i]) S,out)"
+    using Nil
+    by force
+  then have ydef: "y = find_not_apart T (acc @ [i]) S"
+    using Nil
+    by force
+  then have "(\<not> apart T (find_not_apart T (acc @ [i]) S) (acc @ [i])) \<and> ((find_not_apart T (acc @ [i]) S)) \<in> set S"
+    using find_nap_in_s_and_apart[of S T "acc @ [i]"] Nil(6)
+    by fastforce
+  then show ?case
+    using ydef h Nil
+    by simp
+next
+  case (Cons a s)
+  then have z: "acc @ [a] @ s \<in> set S"
+    by force
+  then have "acc @ [a] \<in> set S"
+    using Cons(2) invars(9) invar_substring_in_s[of "set S" "acc @ [a]" "s"]
+    by simp
+  then have hypoeq: "hypo S T acc (a # s,i) = hypo S T (acc @ [a]) (s,i)"
+    by fastforce
+  then have a: "(y,outh) = hypo S T (acc @ [a]) (s,i)"
+    using Cons
+    by argo
+
+  have b: "otree_star T (acc @ [a] @ s) = Some (Node tran,op)"
+    using Cons
+    by fastforce
+  have c: "acc @ [a] @ s @ [i] \<notin> set S"
+    using Cons
+    by simp
+  have "\<exists> z \<in> set S. \<not> apart T ((acc @ [a] @ s) @ [i]) z"
+    using Cons
+    by simp
+  then have "\<not> apart T y (acc @ [a] @ s @ [i]) \<and> outh = out \<and> y \<in> set S"
+    using Cons.IH[of "acc @ [a]"] z a b c Cons
+    by auto
+  then show ?case
+    by simp
+qed
+
+
+lemma
+  assumes "invar (set S,F,T)" and
+    "\<not> (\<exists> f \<in> F. \<forall> s \<in> set S. apart T s f)" and
+    "\<not> (\<exists> s \<in> set S. EX i. (out_star T (s @ [i]) = None))"
+  shows "hypothesis (set S,F,T) (hypo S T [])"
+proof (rule ccontr)
+  assume "\<not> hypothesis (set S,F,T) (hypo S T [])"
+  then have assume1: "\<exists> s \<in> set S. \<exists> i. \<not> (\<exists> tran op n out. (otree_star T s = Some (Node tran,op)) \<and> (tran i = Some (n,out)) \<and>
+      (if (s @ [i]) \<in> set S
+        then (hypo S T []) (s,i) = (s @ [i],out)
+        else (\<exists> y \<in> set S. \<not> apart T y (s @ [i]) \<and> (hypo S T []) (s,i) = (y,out))))"
+    by auto
+  then obtain s i where
+    si: "s \<in> set S \<and> \<not> (\<exists> tran op n out. (otree_star T s = Some (Node tran,op)) \<and> (tran i = Some (n,out)) \<and>
+        (if (s @ [i]) \<in> set S
+          then (hypo S T []) (s,i) = (s @ [i],out)
+          else (\<exists> y \<in> set S. \<not> apart T y (s @ [i]) \<and> (hypo S T []) (s,i) = (y,out))))"
+    by blast
+
+  have "otree_star T s \<noteq> None"
+    using assms(1) si invars(2)
+    by (smt (verit) case_optionE not_None_eq obs_tree.exhaust otree_eq_out)
+  then obtain tran op where
+    tranop: "otree_star T s = (Some (Node tran,op))"
+    by (metis not_Some_eq obs_tree.exhaust old.prod.exhaust)
+  then have assume2: "\<not> (\<exists> n out. (tran i = Some (n,out)) \<and>
+      (if (s @ [i]) \<in> set S
+        then (hypo S T []) (s,i) = (s @ [i],out)
+        else (\<exists> y \<in> set S. \<not> apart T y (s @ [i]) \<and> (hypo S T []) (s,i) = (y,out))))"
+    using assume1 si
+    by blast
+  have "tran i \<noteq> None" proof(rule ccontr)
+    assume "\<not> tran i \<noteq> None"
+    then have "out_star T (s @ [i]) = None"
+      by (smt (verit) Nil_is_append_conv case_optionE not_Cons_self2 option.discI otree_eq_out otree_star_split_none out_star.elims tranop)
+    then show False
+      using assms(3) si
+      by blast
+  qed
+  then obtain n out where
+    nout: "tran i = Some (n,out)"
+    by auto
+  then have assume3: "\<not> (if (s @ [i]) \<in> set S
+      then (hypo S T []) (s,i) = (s @ [i],out)
+      else (\<exists> y \<in> set S. \<not> apart T y (s @ [i]) \<and> (hypo S T []) (s,i) = (y,out)))"
+    using assume2 si tranop
+    by blast
+  then show False proof (cases "s @ [i] \<in> set S")
+    case True
+    then have "(hypo S T []) (s,i) = (s @ [i],out)"
+      using hypo_works_input_in_S tranop nout assms(1)
+      by simp
+    then show ?thesis
+      using assume3 True
+      by fastforce
+  next
+    case False
+    have sinS: "s \<in> set S"
+      using si
+      by blast
+    then have "[] @ s \<in> set S"
+      by fastforce
+    obtain y outh where
+      youth: "hypo S T [] (s,i) = (y,outh)"
+      by fastforce
+    have "s @ [i] \<in> frontier (set S,F,T)"
+      using False sinS assms
+      by simp
+    then have "s @ [i] \<in> F"
+      using assms invars(7)
+      by blast
+    then have "\<exists> z \<in> set S. \<not> apart T (s @ [i]) z"
+      using assms
+      by fastforce
+    then have napart: "\<not> apart T (s @ [i]) y \<and> outh = out \<and> y \<in> set S"
+      using hypo_works_input_notin_S[of S F T "[]" s tran op i n out y outh] youth assms(1) tranop nout
+      using sinS False
+      by auto
+    then have hypo: "hypo S T [] (s,i) = (y,out)"
+      using youth
+      by blast
+    then have "\<not> (\<exists> y \<in> set S. \<not> apart T y (s @ [i]) \<and> hypo S T [] (s,i) = (y,out))"
+      using assume3 False
+      by argo
+    then show ?thesis
+      using napart hypo
+      by auto
+  qed
+qed
+
 
 theorem no_step_mealy_equal:
   assumes "invar (S,F,T)" and
@@ -3169,7 +3400,8 @@ corollary no_step_mealy_equal2:
     using no_step_mealy_equal no_step_exists_hypothesis invar_if_algo_steps assms
     by metis
 
-(* further possible beautification: replace triples (S,F,T) by single variables *)
+  (* further possible beautification: replace triples (S,F,T)
+      by single variables *)
 
 
 section \<open>function\<close>
