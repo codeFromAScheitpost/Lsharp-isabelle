@@ -1,0 +1,343 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% TUM-Vorlage: Wissenschaftliche Arbeit
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Rechteinhaber:
+%     Technische Universität München
+%     https://www.tum.de
+% 
+% Gestaltung:
+%     ediundsepp Gestaltungsgesellschaft, München
+%     http://www.ediundsepp.de
+% 
+% Technische Umsetzung:
+%     eWorks GmbH, Frankfurt am Main
+%     http://www.eworks.de
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{./Ressourcen/Praeambel.tex} % !!! NICHT ENTFERNEN !!!
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\renewcommand{\Thema}{%
+    Thema der Arbeit (optional)}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{./Ressourcen/Anfang.tex} % !!! NICHT ENTFERNEN !!!
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{tikz}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{stmaryrd}
+\usepackage{mathtools}
+\usepackage{amsthm}
+\usepackage{enumitem}
+\usepackage{subcaption}  
+\usepackage{caption}
+\usepackage{graphicx}
+
+\usetikzlibrary{positioning}
+\usetikzlibrary {arrows.meta} 
+
+\theoremstyle{definition}
+\newtheorem{theorem}{Theorem}[chapter]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{proposition}[theorem]{Proposition}
+
+
+\begin{document}
+
+\title{Thema der Arbeit}
+\author{Martin Mustermann}
+\date{Datum}
+\tableofcontents % Inhaltsverzeichnis
+\chapter{Introduction}
+\chapter{L$\#$}
+
+
+
+\section{Mealy machines and apartness:}
+a mealy machine can be understood as a finite state automaton with inputs and outputs. 
+\begin{definition}
+	 a mealy machine $M$ is a 6-tuple $M=(Q,q_0,I,O,\delta,\lambda)$  where 
+\begin{itemize}[itemsep=-8pt, topsep=-20pt]
+	\item Q is the finite set of states 
+	\item $q_0$ is the initial state 
+	\item $I/O$ are the finite sets of input/output symbols
+	\item $\delta :Q\times I\rightharpoonup Q$ the state transition function 
+	\item $\lambda :Q\times I\rightharpoonup O$ the output function 
+\end{itemize}
+\end{definition}
+it is important to note that both functions need to be defined on the same inputs $\delta(x)\downarrow\iff\lambda(x)\downarrow$. We define $\langle\lambda,\delta\rangle:Q\times I\rightharpoonup O\times Q$ as the output transition function. 
+Throughout this explanation we fix $I$ and $O$.  to differentiate between mealy machines we use superscript $M$ e.g. $M=(Q^M,q_0^M,I,O,\delta^M,\lambda^M)$.  to denote that $\langle\lambda,\delta\rangle(q,i)=(q',o)$ we write $q\xrightarrow{i/o}q'$. to use the output transition function with words of length $n\in\mathbb{N}$ we compose $\langle\lambda,\delta\rangle$ n  times with itself: we define $\langle\lambda_n,\delta_n\rangle:Q\times I^n\rightharpoonup O^n\times Q$ by defining $\langle\lambda_0,\delta_0\rangle=id_Q$ and $\langle\lambda_{n+1},\delta_{n+1}\rangle =Q\times I^{n+1}\xrightharpoonup{\langle\lambda_n,\delta_n\rangle\times id_I}O^n\times Q\times I\xrightharpoonup{id_{O^n}\times\langle\lambda,\delta\rangle} O^{n+1}\times Q$. We call a Mealy machine Complete if $\delta$ (and therefore $\lambda$) is Total. \\
+intuitively we can see each state q of a mealy machine as a Map  from input words to output words. 
+\begin{definition}
+	 we write $\llbracket q\rrbracket:I^*\times O^*$ where $\llbracket q\rrbracket(\sigma)=\lambda(q,\sigma)$. two states $q$ and $q'$ are equivalent $q\approx q'$ iff $\llbracket q\rrbracket=\llbracket q' \rrbracket$, both states can be from different mealy machines. two Mealy machines are equivalent if their initial states are equivalent $M\approx N\iff q_0^M\approx q_0^N$.
+\end{definition}
+in the learning context we are in we see undefined values in partial functions as lack of knowledge, to show that two mealy machines act the same on the input defined by both machines we define a functional simulation. this helps with expansion of a partial mealy machine as we can expand the functional simulation. formally:
+\begin{definition}
+ for two mealy machines $M$ and $N$ we call $f:M\rightarrow n$ if f is a map $f:Q^M\rightarrow Q^N$ and  $$
+	f(q_0^M)=q_0^N \text{ and } q\xrightarrow{i/o}q' \implies f(q)\xrightarrow{i/o}f(q') 
+ $$
+\end{definition} 
+as our primary data structure to store learned information we use a Mealy machine that is also a tree. this tree gets expanded with new information upon finding out. we call the tree an observation tree. formally we define:
+\begin{definition}A mealy machine $T$ is a Tree if for each $q\in Q^T$ there is a unique accessor $\delta\in I^*$ so that $\sigma^T(q_0^T,\sigma)=q$. we call a Tree $T$ an Observation tree for a mealy machine $M$ if there is a functional simulation $f:T\rightarrow M$.\end{definition}
+
+
+\begin{figure}[t]
+
+	\begin{subfigure}[b]{0.40\textwidth}
+	
+	\begin{tikzpicture}[remember picture,
+		roundnode/.style={circle, draw=black, fill=white, very thick, minimum size=7mm},  
+every path/.style={line width=1pt},
+every arrow/.style={scale=1.5}
+		]
+		%Nodes
+		\node[roundnode,fill=red!20]      (two)                         {2};
+		\node[roundnode,fill=blue!20]      (one)          [above=2cm of two] {1};
+		\node[roundnode,fill=green!20]      (three)        [right=2cm of two] {3};
+		
+		
+		%Lines
+		\draw[->] (0,3.5) -- (one.north);
+		\draw[->] (one.south) -- (two.north) node[midway, right] {a/B};
+		\draw[->] (one.south) -- (three.north) node[midway,above right] {b/A};
+		\draw[->] (two.east) 	.. controls +(up:5mm) and +(up:5mm) ..  (three.west) node[midway, above] {a/A};
+		\draw[->] (three.west) 	.. controls +(down:5mm) and +(down:5mm) ..  (two.east) node[midway, above] {a/A};
+		\draw[->] (three.north) 
+		.. controls +(up:1cm) and +(right:2cm) .. 
+		(one.east)
+		node[midway, above right] {b/B};
+		\draw[->] (two.north) 	.. controls +(left:7mm) and +(left:7mm) ..  (one.south) node[midway, left] {b/A};
+	\end{tikzpicture}
+	\caption{A Mealy Machine $M$}
+	\label{otree:mealy}
+\end{subfigure}
+\begin{subfigure}[b]{0.50\textwidth}
+	\centering
+	\begin{tikzpicture}[remember picture, row sep=2.5em, 		roundnode/.style={circle, draw=black, very thick, minimum size=7mm},  
+		every path/.style={line width=1pt},
+		every arrow/.style={scale=1.5}]
+			%Nodes
+		\node[roundnode,fill=blue!20]      (start)                         {[ ]};
+		\node[roundnode,fill=green!20]      (b)    [ below right=7mm and 1.5cm of start]                        {[b]};
+		\node[roundnode,fill=red!20]      (a)    [above=1.5cm of b]                        {[a]};
+		\node[roundnode,fill=blue!20]      (bb)  [right=1.5cm of b]                        	{[bb]};
+		\node[roundnode,fill=green!20]      (bbb)  [right=1.5cm of bb]                        	{[bbb]};
+		\node[roundnode,fill=red!20]      (bba)  [above=1.2cm of bbb]                        	{[bba]};
+		
+		%Lines
+		\draw[->] (start.east) -- (a.west) node[midway, above left] {a/B};
+		\draw[->] (start.east) -- (b.west) node[midway, above right] {b/A};
+		\draw[->] (b.east) -- (bb.west) node[midway, above] {b/B};
+		\draw[->] (bb.east) -- (bbb.west) node[midway, above] {b/A};
+		\draw[->] (bb.east) -- (bba.west) node[midway, above left] {a/B};
+
+		
+\end{tikzpicture}
+	\caption{An observation tree $T$ for $M$ with accessor as node names}
+	\label{otree:otree}
+\end{subfigure}
+    \begin{tikzpicture}[remember picture, overlay,	every path/.style={line width=1pt},
+    	every arrow/.style={scale=1.5}]
+    	% Arrow from a manual position near subfigure 1 to subfigure 2
+    	\draw[->]
+    	([xshift=-10cm, yshift=-3cm]current page.north east) 
+    	to
+    	([xshift=7.5cm, yshift=-3cm]current page.north west) node[above right] {\qquad\qquad$f$};
+    \end{tikzpicture}
+\caption{an observation tree simulates a Mealy machine}
+\label{otree}
+\end{figure}
+Figure 1 shows a complete mealy machine for $I^M={a,b}$ as well as an observation tree for $M$. the nodes of the observation tree are labled with the accessor of the actual node, e.g. $\sigma^T(q_0^T,bb)=[bb]$. $f$ is a functional simulation from $T$ to $M$ $f:T\rightarrow M$ and each node in the observation tree has the color of the node that it corresponds with in $M$ e.g. $f([a])=2$.\\
+throughout the learning algorythm the observation tree gets expanded, but as the learner only learns via queries and has no further information about the underlying Mealy machine the functional simulation is unknown. to be able to produce a Mealy machine that could be matching the hidden Mealy machine the algorithm only infers that two states can not be the same state of the hidden machine, e.g. even if we dont know what state $[b]$ represents, we can infer that $f([b])\neq f([])$ because $\lambda^T([b],b)=B$ and $\lambda^T([],b)=A$. we call this form of inequality apartness. formally:
+\begin{definition}
+	For a Mealy machine $M$, we say that the two states $p,q\in Q^M$ are apart(written $p\#q$) if there is some $\sigma\in I^*$ such that $\llbracket p\rrbracket(\sigma)\downarrow\land\llbracket q\rrbracket(\sigma)\downarrow$ and $\llbracket p\rrbracket(\sigma)\neq\llbracket q\rrbracket(\sigma)$. we call $\sigma$ a witness for of $p\#q$ and write $\sigma\vdash p\#q$.
+\end{definition}
+as the apartness relation notes a difference in the semantics of two states, two apart states can not be mapped to the same state in a functional simulation $f:T\rightarrow M$ $$
+p\#q, p,q\in Q^T\implies f(q)\not\approx f(p)
+$$
+thus whenever the learner knows that two states are apart in the observation tree, it knows that these are corresponding to different states in the hidden Mealy machine.
+\section{The learning Algorythm $L\#$}
+\subsection{The Teacher}
+with the invention of automata Learning Dana Angluin also proposed the minimal adequate teacher Framework. this framework allows the teacher to answer to types of queries: a membership query, that allows to check if a string is in a hidden set. the second query allows the learner to ask if their description of a set produces the same set as the hidden set, if the answer is false the teacher also responds with a counterexample why the sets are not the same.\cite[]{}\\
+for our purpososes of learning a hidden mealy machine we formulate the two queries a bit different.
+\begin{definition}
+	in the learning game between a teacher and a learner where the teacher has knowledge of a hidden mealy machine M we expect the teacher to answer the following querys correctly:
+	\begin{gather*}OutputQuery(\sigma): \text{ for }\sigma\in I^*\text{ the teacher replies with the output sequence } \lambda^M(q_0^M,\sigma)\in O^*\\
+	EquivQuery(H):\text{ for a Complete Mealy Machine } H \text{ the teacher replies with yes if }H\approx M\\\text{ or no and a counterexample } \sigma\in I^*\text{ with }\lambda^M(q_0^M,\sigma)\neq\lambda^H(q_0^H,\sigma)
+	\end{gather*}
+\end{definition}
+our output query lets us expand our observation tree along a chosen route $\sigma$, and if we build a hypothesis as to how the mealy machine looks we can verify it with the equivalence query or obtain a counterexample that eliminates the hypothesis we build from the ones we could create.
+\subsection{the main Loop}
+\clearpage
+
+Passen Sie gegebenenfalls die Ränder an die Vorgaben Ihres Prüfers an und
+beachten Sie dabei, dass das Logo der TUM sich oben rechts innerhalb der
+Ränder, auf der Titelseite befindet. Für die Titelseiten stehen separate
+Vorlagen zur Verfügung.
+
+Zur Definition von \gls{abk} erstellen Sie für die gewünschte Abkürzung einen
+Eintrag in der Datei \texttt{Abkuerzungen.tex} und referenzieren sie ihn
+mittels \texttt{\textbackslash{}gls}; diese tauchen nach einem Lauf mit
+\texttt{latexmk} im Abkürzungsverzeichnis auf. Beispiel:
+
+\vspace{-\baselineskip}
+
+\textbf{Definition in \texttt{Abkuerzungen.tex}:} \texttt{\textbackslash{}newacronym\{abk\}\{Abk.\}\{Abkürzungen\}}\\
+\textbf{Referenzierung:} \texttt{\textbackslash{}gls\{abk\}}
+
+
+Für weitere Informationen zu Glossaren und Abkürzungen siehe die Dokumentation
+des Pakets \texttt{glossaries} und die entsprechenden Abschnitte in den
+Vorlagendateien.
+
+
+\subsection[]{Aufzählungen}
+
+\begin{itemize}
+\item Dies ist die Standardaufzählung
+    \begin{itemize}
+    \item Dies ist die nächste Ebene der Aufzählung
+    \end{itemize}
+\end{itemize}
+
+
+\subsection[]{Nummerierungen}
+
+\begin{enumerate}
+\item Erster Punkt der Nummerierungen
+    \begin{enumerate}
+    \item Unterpunkt der Nummerierungen
+    \end{enumerate}
+\end{enumerate}
+\clearpage
+%
+\listoffigures % Abbildungsverzeichnis
+
+\printglossary[type=\acronymtype,title=Abkürzungsverzeichnis] % Abkürzungsverzeichnis
+
+\listoftables % Tabellenverzeichnis
+
+\onehalfspacing
+
+\addchap{Tabellenvarianten}
+
+\vspace{\parskip}
+\section*{Überschrift Tabelle 1}
+
+\begin{table}[!h]
+\begin{tabularx}{\textwidth}{ M | M }
+\multicolumn{1}{X}{\textbf{Spalte 1}}%
+& \multicolumn{1}{X}{\textbf{Spalte 2}} \\
+\hline
+Nummer 1 & Nummer 2 \\
+\hline
+Nummer 1 & Nummer 2 \\
+\hline
+Nummer 1 & Nummer 2 \\
+\hline
+\end{tabularx}
+
+\caption{Beschreibung}
+\end{table}
+
+\vspace{\parskip}
+\section*{Überschrift Tabelle 2}
+
+\begin{table}[!h]
+\begin{tabularx}{\textwidth}{| M | M |}
+\hline
+\textbf{Spalte 1} & \textbf{Spalte 2} \\
+\hline
+Nummer 1 & Nummer 2 \\
+\hline
+Nummer 1 & Nummer 2 \\
+\hline
+Nummer 1 & Nummer 2 \\
+\hline
+\end{tabularx}
+
+\caption{}
+\end{table}
+
+\vspace{\parskip}
+\section*{Überschrift Tabelle 3}
+
+\begin{table}[!h]
+\begin{tabularx}{\textwidth}{@{} M  M @{}}
+\textbf{Spalte 1} & \textbf{Spalte 2} \\
+Nummer 1 & Nummer 2 \\
+Nummer 1 & Nummer 2 \\
+Nummer 1 & Nummer 2 \\
+\end{tabularx}
+
+\caption{}
+\end{table}
+
+\clearpage
+
+\addchap{Tabellenvarianten 2}
+
+\vspace{\parskip}
+\section*{Überschrift Tabelle 1}
+
+\begin{table}[!h]
+\fontsize{9pt}{13pt}\selectfont
+\begin{tabularx}{\textwidth}{ M | M }
+\multicolumn{1}{X}{\textbf{Spalte 1}}%
+& \multicolumn{1}{X}{\textbf{Spalte 2}} \\
+\hline
+Nummer 1,\newline\,mehrzeilig in Schriftgröße 9 pt & Nummer 2 \\
+\hline
+Nummer 1 & Nummer 2 \\
+\hline
+Nummer 1 & Nummer 2 \\
+\hline
+\end{tabularx}
+
+\caption{}
+\end{table}
+
+
+
+\vspace{\parskip}
+\section*{Überschrift Tabelle 2}
+
+\begin{table}[!h]
+\fontsize{9pt}{13pt}\selectfont
+\begin{tabularx}{\textwidth}{| M | M |}
+\hline
+\textbf{Spalte 1} & \textbf{Spalte 2} \\
+\hline
+Nummer 1 & Nummer 2 \\
+\hline
+Nummer 1 & Nummer 2 \\
+\hline
+Nummer 1 & Nummer 2 \\
+\hline
+\end{tabularx}
+\caption{}
+\end{table}
+
+
+\vspace{\parskip}
+\section*{Überschrift Tabelle 3}
+
+\begin{table}[!h]
+\fontsize{9pt}{13pt}\selectfont
+\begin{tabularx}{\textwidth}{@{} M  M @{}}
+\textbf{Spalte 1} & \textbf{Spalte 2} \\
+Nummer 1 & Nummer 2 \\
+Nummer 1 & Nummer 2 \\
+Nummer 1 & Nummer 2 \\
+\end{tabularx}
+\caption{}
+\end{table}
+
+
+\end{document}

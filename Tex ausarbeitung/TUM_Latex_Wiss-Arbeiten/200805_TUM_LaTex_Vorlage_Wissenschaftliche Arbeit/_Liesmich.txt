@@ -1,0 +1,106 @@
+﻿TUM-Vorlage "Wissenschaftliche Arbeit" für LaTeX
+================================================
+
+Rechteinhaber:
+    Technische Universität München
+    https://www.tum.de
+
+Gestaltung:
+    ediundsepp Gestaltungsgesellschaft, München
+    http://www.ediundsepp.de
+
+Technische Umsetzung:
+    eWorks GmbH, Frankfurt am Main
+    http://www.eworks.de
+
+
+Grundsätzliches
+---------------
+Alle Textdateien verwenden als Zeichenkodierung UTF-8. Die PDF-Erstellung
+wurde mit der LaTeX-Distribution "MiKTeX 2.9.7250" und dem LaTeX-Editor
+TeXworks unter Microsoft Windows 10 (64-Bit) getestet. 
+
+Die für die Erstellung und Bearbeitung der LaTeX-Dokumente nötige Software
+können Sie sich von der folgenden Website herunterladen. Zur Erstellung von
+Abkürzungsverzeichnissen (z. B. in der Vorlage "WissenschaftlicheArbeit.tex")
+wird zusätzlich die Skript-Sprache "Perl" verwendet, die unter Windows nicht
+standardmäßig installiert ist.
+
+	Download LaTeX-Distribution: https://miktex.org/download
+	Download Perl (für Windows): https://www.perl.org/get.html
+
+In diesem LaTeX-Installationspaket ist der kostenfreie LaTeX-Editor "TeXworks"
+enthalten. Die Erstellung (Kompilierung) der LaTeX-Vorlagen funktioniert mit
+diesem Editor (unter Verwendung der Standardeinstellungen) optimal, d. h. ohne
+Fehler- oder Warnmeldungen.
+
+Für Hilfe zu der verwendeten Dokumentenklasse "scrbook" sei auf diese
+Webseiten verwiesen:
+    http://www.komascript.de
+
+Für Hilfe zu allen weiteren eingebundenen Paketen lesen Sie bitte die
+entsprechenden Dokumentationen, die im Comprehensive TeX Archive Network
+(CTAN) zur Verfügung stehen:
+    https://www.ctan.org
+
+Ein gutes Nachschlagewerk ist das LaTeX Wikibook:
+    https://en.wikibooks.org/wiki/LaTeX
+
+
+Dateien und Verzeichnisse
+-------------------------
+Im Folgenden wird mit "Wurzelverzeichnis" das Verzeichnis bezeichnet, indem
+sich diese Datei "_Liesmich.txt" befindet.
+
+Datei "_Liesmich.txt": Diese Datei.
+
+Datei "WissenschaftlicheArbeit.tex":
+
+    Die Vorlage für wissenschaftliche Arbeit. Die am Anfang mit "\newcommand"
+    definierten Befehle müssen für die Verwendung angepasst werden.
+
+Datei "latexmkrc":
+    Datei, die beim Ausführen von "latexmk" ausgeführt wird, um die
+    Erstellung das Abkürzungsverzeichnisses damit zu ermöglichen.
+
+Verzeichnis "Ressourcen":
+
+    Der Ordner "Ressourcen" enthält alle für die Erstellung einer
+    wissenschaftlichen Arbeit benötigten Dateien. Um eigene Ableitungen von
+    dieser Vorlage zu erstellen, die Lokalisierungseinstellungen anzupassen
+    etc. editieren Sie bitte je nach Bedarf die Dateien "Praeambel.tex" und
+    "Anfang.tex".
+
+
+Dokumenterstellung über LaTex-Editor (z. B. TeXworks)
+-----------------------------------------------------
+Die meisten LaTeX-Editoren bieten eine Möglichkeit an, um aus einem LaTeX-Dokument
+"<Datei>.tex" direkt ein PDF mit gleichen Namen "<Datei>.pdf" zu erstellen. In
+TeXworks erfolgt das z. B. über den Befehl "Setzen" (grüner Pfeil) oder über die
+Tastenkombination "Strg+t".
+
+Als Grundeinstellung sollte beim Kompilieren der Dokumente die Textsatzeinstellung
+"pdfLaTeX+MakeIndex+BibTeX" verwendet werden. Dokumente, die Inhaltsverzeichnisse
+oder Abbildungsverzeichnisse enthalten, müssen ggf. mehrfach kompiliert werden.
+
+Hinweis: Bei Erstellung von Dokumenten mit Abkürzungsverzeichnissen ist zusätzlich
+die Erstellung des Dokuments über die Kommandozeile nötig.
+
+
+Dokumenterstellung über Kommandozeile
+-------------------------------------
+
+Um ein PDF aus der Datei "WissenschaftlicheArbeit.tex" (die Dateiendung ".tex"
+ist optional) zu erstellen, führe folgenden Befehl im Wurzelverzeichnis aus:
+
+    latexmk -pdf WissenschaftlicheArbeit.tex
+
+Wenn keine Fehler auftreten sind liegt anschließend im Wurzelverzeichnis eine
+PDF-Datei namens "WissenschaftlicheArbeit.pdf".
+
+Bei der Dokumenterzeugung fallen einige temporäre Dateien an, die die
+Erstellung beschleunigen. Sobald eine finale Fassung des Dokuments vorliegt
+oder falls referenzierte Dateien nicht als geändert erkannt werden, kann man
+sie mit dem folgenden Befehl entfernen:
+
+    latexmk -c
