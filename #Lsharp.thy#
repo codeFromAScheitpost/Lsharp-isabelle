@@ -3951,14 +3951,6 @@ qed
 
 
 
-lemma "invar (set S,set F,T) \<Longrightarrow>  (lsharp (S,F,T)) = (S',F',T') \<Longrightarrow> invar (set S',set F',T')"
-proof (induction rule:wf_induct[of "measure (\<lambda> (S,F,T). max_norm Q - norm (set S, set F,T))"])
-  case 1
-  then show ?case sorry
-next
-  case (2 x)
-  then show ?case sorry
-qed
 
 
 end

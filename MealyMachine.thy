@@ -1,10 +1,12 @@
 theory MealyMachine
-  imports Main
+  imports Main "HOL-Library.LaTeXsugar"
 begin
 
 sledgehammer_params [provers = cvc4 verit z3 spass vampire zipperposition]
 
-text \<open>transs mealy\<close>
+text \<open>trans mealy\<close>
+
+
 type_synonym ('s,'in,'out) trans = "(('s \<times> 'in) \<Rightarrow> ('s \<times> 'out))"
 
 type_synonym ('s,'in,'out) mealy = "'s \<times> ('s,'in,'out) trans"
@@ -12,19 +14,20 @@ type_synonym ('s,'in,'out) mealy = "'s \<times> ('s,'in,'out) trans"
 
 fun run_mealy :: "('s,'in,'out) trans \<Rightarrow> 's \<Rightarrow> 'in list \<Rightarrow> ('s \<times> 'out list)" where
 "run_mealy f q [] = (q, [])" |
-"run_mealy f q (w # ws) = (let (st,op) = f (q,w) in (let (q',x) = run_mealy f st ws in (q',op # x)))"
+"run_mealy f q (w # ws) = (let (st,op) = f (q,w) in 
+  (let (q',x) = run_mealy f st ws in (q',op # x)))"
 
 
 definition outs_run_mealy :: "('s,'in,'out) trans \<Rightarrow> 's \<Rightarrow> 'in list \<Rightarrow> ('out list)" where
 "outs_run_mealy f q ins =  snd (run_mealy f q ins)" 
-
-
 definition state_run_mealy :: "('s,'in,'out) trans \<Rightarrow> 's \<Rightarrow> 'in list \<Rightarrow> ('s)" where
 "state_run_mealy f q ins = fst (run_mealy f q ins)" 
 
 
 
-lemma run_mealy_twostep:"run_mealy f q' ins = (q'',out) \<Longrightarrow> f (q,i) = (q',ou) \<Longrightarrow> run_mealy f q (i#ins) = (q'',ou#out)"
+lemma run_mealy_twostep:"run_mealy f q' ins = (q'',out) \<Longrightarrow> 
+    f (q,i) = (q',ou) \<Longrightarrow> 
+  run_mealy f q (i#ins) = (q'',ou#out)"
   by simp
 
 lemma outs_run_mealy_twostep:"outs_run_mealy f q' ins = out \<Longrightarrow> f (q,i) = (q',ou) \<Longrightarrow> outs_run_mealy f q (i#ins) = ou#out"

@@ -14,3 +14,7 @@ MealyMachineClean.thy~
 LsharpClean.thy
 LsharpClean.thy~
 *.thy~
+*.sty
+/output
+/document
+*.zip

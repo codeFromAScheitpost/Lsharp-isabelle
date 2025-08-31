@@ -1,0 +1,135 @@
+\begin{thebibliography}{10}
+
+\bibitem{angluin}
+Dana Angluin.
+\newblock Learning regular sets from queries and counterexamples.
+\newblock {\em Information and Computation}, 75(2):87--106, 1987.
+
+\bibitem{Blaauwbroek_2024}
+Lasse Blaauwbroek, David~M. Cerna, Thibault Gauthier, Jan Jakubův, Cezary
+  Kaliszyk, Martin Suda, and Josef Urban.
+\newblock {\em Learning Guided Automated Reasoning: A Brief Survey}, page
+  54–83.
+\newblock Springer Nature Switzerland, 2024.
+
+\bibitem{DBLP:journals/corr/abs-2403-02019}
+V{\'{e}}ronique Bruy{\`{e}}re, Bharat Garhewal, Guillermo~A. P{\'{e}}rez,
+  Ga{\"{e}}tan Staquet, and Frits~W. Vaandrager.
+\newblock Active learning of mealy machines with timers.
+\newblock {\em CoRR}, abs/2403.02019, 2024.
+
+\bibitem{vampirediary}
+Filip Bártek, Ahmed Bhayat, Robin Coutelier, Márton Hajdu, Matthias
+  Hetzenberger, Petra Hozzová, Laura Kovács, Jakob Rath, Michael Rawson,
+  Giles Reger, Martin Suda, Johannes Schoisswohl, and Andrei Voronkov.
+\newblock The vampire diary, 2025.
+
+\bibitem{zthree}
+Leonardo de~Moura and Nikolaj Bj{\o}rner.
+\newblock Z3: An efficient smt solver.
+\newblock In C.~R. Ramakrishnan and Jakob Rehof, editors, {\em Tools and
+  Algorithms for the Construction and Analysis of Systems}, pages 337--340,
+  Berlin, Heidelberg, 2008. Springer Berlin Heidelberg.
+
+\bibitem{godel}
+Kurt G{\"o}del.
+\newblock {\"U}ber formal unentscheidbare s{\"a}tze der principia mathematica
+  und verwandter systeme i.
+\newblock {\em Monatshefte f{\"u}r Mathematik und Physik}, 38(1):173--198, Dec
+  1931.
+
+\bibitem{holligth}
+John Harrison.
+\newblock Hol light: An overview.
+\newblock In Stefan Berghofer, Tobias Nipkow, Christian Urban, and Makarius
+  Wenzel, editors, {\em Theorem Proving in Higher Order Logics}, pages 60--66,
+  Berlin, Heidelberg, 2009. Springer Berlin Heidelberg.
+
+\bibitem{10.1007/978-3-319-11164-3_26}
+Malte Isberner, Falk Howar, and Bernhard Steffen.
+\newblock The ttt algorithm: A redundancy-free approach to active automata
+  learning.
+\newblock In Borzoo Bonakdarpour and Scott~A. Smolka, editors, {\em Runtime
+  Verification}, pages 307--322, Cham, 2014. Springer International Publishing.
+
+\bibitem{khovanova2011martingardnersmistake}
+Tanya Khovanova.
+\newblock Martin gardner's mistake, 2011.
+
+\bibitem{sel4}
+Gerwin Klein, Kevin Elphinstone, Gernot Heiser, June Andronick, David Cock,
+  Philip Derrin, Dhammika Elkaduwe, Kai Engelhardt, Rafal Kolanski, Michael
+  Norrish, Thomas Sewell, Harvey Tuch, and Simon Winwood.
+\newblock sel4: formal verification of an os kernel.
+\newblock In {\em Proceedings of the ACM SIGOPS 22nd Symposium on Operating
+  Systems Principles}, SOSP '09, page 207–220, New York, NY, USA, 2009.
+  Association for Computing Machinery.
+
+\bibitem{CRYSTALS-Kyber-AFP}
+Katharina Kreuzer.
+\newblock Crystals-kyber.
+\newblock {\em Archive of Formal Proofs}, September 2022.
+\newblock \url{https://isa-afp.org/entries/CRYSTALS-Kyber.html}, Formal proof
+  development.
+
+\bibitem{gedankenexperiment}
+Edward~F. Moore, W.~R. ASHBY, J.~T. CULBERTSON, M.~D. DAVIS, S.~C. KLEENE,
+  K.~DE LEEUW, D.~M.~MAC KAY, J.~MC CARTHY, M.~L. MINSKY, E.~F. MOORE, C.~E.
+  SHANNON, N.~SHAPIRO, A.~M. UTTLEY, and J.~VON NEUMANN.
+\newblock {\em GEDANKEN-EXPERIMENTS ON SEQUENTIAL MACHINES}, pages 129--154.
+\newblock Princeton University Press, 1956.
+
+\bibitem{PAO197853}
+Tsyh-Wen Pao and John~W. Carr.
+\newblock A solution of the syntactical induction-inference problem for regular
+  languages.
+\newblock {\em Computer Languages}, 3(1):53--64, 1978.
+
+\bibitem{paulson2000isabelle700theoremprovers}
+Lawrence~C. Paulson.
+\newblock Isabelle: The next 700 theorem provers, 2000.
+
+\bibitem{Peled1999}
+Doron Peled, Moshe~Y. Vardi, and Mihalis Yannakakis.
+\newblock {\em Black Box Checking}, pages 225--240.
+\newblock Springer US, Boston, MA, 1999.
+
+\bibitem{perk2013erroneoussolutionthreedimensional3d}
+Jacques H.~H. Perk.
+\newblock Erroneous solution of three-dimensional (3d) simple orthorhombic
+  ising lattices, 2013.
+
+\bibitem{RIVEST1993299}
+R.L. Rivest and R.E. Schapire.
+\newblock Inference of finite automata using homing sequences.
+\newblock {\em Information and Computation}, 103(2):299--347, 1993.
+
+\bibitem{LL1_Parser-AFP}
+Sarah Tilscher and Simon Wimmer.
+\newblock Ll(1) parser generator.
+\newblock {\em Archive of Formal Proofs}, May 2024.
+\newblock \url{https://isa-afp.org/entries/LL1_Parser.html}, Formal proof
+  development.
+
+\bibitem{vandraagerlsharp}
+Frits~W. Vaandrager, Bharat Garhewal, Jurriaan Rot, and Thorsten Wi{\ss}mann.
+\newblock A new approach for active automata learning based on apartness.
+\newblock {\em CoRR}, abs/2107.05419, 2021.
+
+\bibitem{DBLP:conf/birthday/VaandragerS25}
+Frits~W. Vaandrager and Martijn Sanders.
+\newblock L\({}^{\mbox{{\#}}}\) for dfas.
+\newblock In Nils Jansen, Sebastian Junges, Benjamin~Lucien Kaminski, Christoph
+  Matheja, Thomas Noll, Tim Quatmann, Mari{\"{e}}lle Stoelinga, and Matthias
+  Volk, editors, {\em Principles of Verification: Cycling the Probabilistic
+  Landscape - Essays Dedicated to Joost-Pieter Katoen on the Occasion of His
+  60th Birthday, Part {III}}, volume 15262 of {\em Lecture Notes in Computer
+  Science}, pages 155--172. Springer, 2024.
+
+\bibitem{pincipa}
+A.N. Whitehead and B.~Russell.
+\newblock {\em Principia Mathematica}.
+\newblock Number Bd. 1 in Principia Mathematica. Cambridge University Press,
+  1910.
+
+\end{thebibliography}

@@ -1,0 +1,51 @@
+This is BibTeX, Version 0.99d
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: WissenschaftlicheArbeit.aux
+Reallocating 'name_of_file' (item size: 1) to 6 items.
+The style file: plain.bst
+Reallocating 'name_of_file' (item size: 1) to 4 items.
+Database file #1: ref.bib
+Warning--I didn't find a database entry for ""
+Warning--can't use both author and editor fields in Peled1999
+You've used 21 entries,
+            2118 wiz_defined-function locations,
+            639 strings with 8803 characters,
+and the built_in function-call counts, 8570 in all, are:
+= -- 807
+> -- 517
+< -- 10
++ -- 203
+- -- 178
+* -- 606
+:= -- 1404
+add.period$ -- 67
+call.type$ -- 21
+change.case$ -- 140
+chr.to.int$ -- 0
+cite$ -- 22
+duplicate$ -- 320
+empty$ -- 589
+format.name$ -- 178
+if$ -- 1818
+int.to.chr$ -- 0
+int.to.str$ -- 21
+missing$ -- 21
+newline$ -- 106
+num.names$ -- 50
+pop$ -- 174
+preamble$ -- 1
+purify$ -- 123
+quote$ -- 0
+skip$ -- 267
+stack$ -- 0
+substring$ -- 400
+swap$ -- 112
+text.length$ -- 10
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 76
+warning$ -- 1
+while$ -- 70
+width$ -- 23
+write$ -- 235
+(There were 2 warnings)
